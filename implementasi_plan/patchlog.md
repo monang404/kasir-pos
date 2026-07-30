@@ -1,7 +1,7 @@
 ---
 title: kasir-POS Implementasi Plan — Patch Log
-latest_patch_id: PATCH-0048
-total_entries: 48
+latest_patch_id: PATCH-0054
+total_entries: 54
 ---
 
 # PATCHLOG.md — Log Perubahan per Subtask
@@ -12,6 +12,79 @@ total_entries: 48
 > **Wajib diisi setiap kali sebuah subtask (task.subtask, mis. 0.1, 1.2, dst.) selesai dikerjakan.**
 
 <!-- ENTRY BARU DITAMBAHKAN DI SINI (tepat di bawah baris ini, di ATAS entri lama) -->
+
+## PATCH-0054
+**Task ID:** 8.6
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Intelligence/ML frontend
+**Deskripsi:** 5 tab admin-only + evaluasi model persisten
+**File Berubah:**
+- frontend/src/pages/ml/MlPage.tsx
+**Bundle Zip:** implementasi_plan/bundles/8.6.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0053
+**Task ID:** 8.5
+**Tanggal:** 2026-07-30
+**Judul:** Rekomendasi promo/bonus & Apriori bundling
+**Deskripsi:** Bonus/upsell + tampilkan penuh hasil Apriori bundling di UI
+**File Berubah:**
+- backend/app/ml/promo_recommendation.py
+**Bundle Zip:** implementasi_plan/bundles/8.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0052
+**Task ID:** 8.4
+**Tanggal:** 2026-07-30
+**Judul:** Prediksi demand & bonus kasir
+**Deskripsi:** Top-N produk + skor kasir + tier bonus sesuai keputusan task 1.4
+**File Berubah:**
+- backend/app/ml/prediksi_demand.py
+- backend/app/ml/bonus_kasir.py
+**Bundle Zip:** implementasi_plan/bundles/8.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0051
+**Task ID:** 8.3
+**Tanggal:** 2026-07-30
+**Judul:** Prediksi omzet HoltES/RandomForest
+**Deskripsi:** Pemilihan model otomatis via RMSE, fallback tanpa sklearn
+**File Berubah:**
+- backend/app/ml/prediksi_omzet.py
+**Bundle Zip:** implementasi_plan/bundles/8.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0050
+**Task ID:** 8.2
+**Tanggal:** 2026-07-30
+**Judul:** Prediksi stok moving average
+**Deskripsi:** Confidence score, status kategori, reorder_qty
+**File Berubah:**
+- backend/app/ml/prediksi_stok.py
+**Bundle Zip:** implementasi_plan/bundles/8.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0049
+**Task ID:** 8.1
+**Tanggal:** 2026-07-30
+**Judul:** Infrastruktur job async & cache ML
+**Deskripsi:** Job queue + cache hasil model, hindari retrain tiap request
+**File Berubah:**
+- backend/app/ml/job_infra.py
+**Bundle Zip:** implementasi_plan/bundles/8.1.zip
+**Status:** done
+**Catatan:** -
+
 
 ## PATCH-0048
 **Task ID:** 7.7

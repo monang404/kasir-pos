@@ -67,6 +67,18 @@ app.include_router(laporan_rtp_router)
 app.include_router(laporan_psp_router)
 app.include_router(laporan_export_router)
 
+# ML / Intelligence routers
+from app.ml.prediksi_stok import router as ml_stok_router
+from app.ml.prediksi_omzet import router as ml_omzet_router
+from app.ml.prediksi_demand import router as ml_demand_router
+from app.ml.bonus_kasir import router as ml_bonus_router
+from app.ml.promo_recommendation import router as ml_promo_router
+app.include_router(ml_stok_router)
+app.include_router(ml_omzet_router)
+app.include_router(ml_demand_router)
+app.include_router(ml_bonus_router)
+app.include_router(ml_promo_router)
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "kasir-pos-backend"}

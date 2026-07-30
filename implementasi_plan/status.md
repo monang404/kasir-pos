@@ -12,6 +12,12 @@ current_task: "1.1"
 
 | Task ID | Judul Subtask | Status | Mulai | Selesai | Bundle Zip | Catatan |
 |---|---|---|---|---|---|---|
+| 8.6 | Halaman Intelligence/ML frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.6.zip |  |
+| 8.5 | Rekomendasi promo/bonus & Apriori bundling | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.5.zip |  |
+| 8.4 | Prediksi demand & bonus kasir | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.4.zip |  |
+| 8.3 | Prediksi omzet HoltES/RandomForest | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.3.zip |  |
+| 8.2 | Prediksi stok moving average | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.2.zip |  |
+| 8.1 | Infrastruktur job async & cache ML | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.1.zip |  |
 | 7.7 | Halaman Laporan frontend 6 tab | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.7.zip |  |
 | 7.6 | Ekspor laporan xlsx dark-theme | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.6.zip |  |
 | 7.5 | Endpoint laporan pelanggan/stok/pengeluaran | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.5.zip |  |
