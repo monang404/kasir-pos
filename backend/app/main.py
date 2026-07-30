@@ -6,9 +6,20 @@ di task 2-9 sesuai implementasi_plan/. File ini sengaja minimal: hanya health
 check untuk memverifikasi CI (lint + test) berjalan di atas scaffold kosong.
 """
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.auth.login import router as auth_router
 
 app = FastAPI(title="kasir-POS API", version="0.0.1")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth_router)
 
 @app.get("/health")
 def health() -> dict:

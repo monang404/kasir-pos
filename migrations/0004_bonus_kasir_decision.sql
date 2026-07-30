@@ -1,0 +1,4 @@
+-- KEPUTUSAN FINAL: 
+-- Berdasarkan implementasi_plan/decisions/0004-bonus-kasir.md, 
+-- tabel `bonus_kasir` dan `transaksi_bonus` DIHAPUS dari skema baru.
+-- Tidak ada DDL yang dieksekusi di file ini.

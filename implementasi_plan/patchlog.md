@@ -1,7 +1,7 @@
 ---
 title: kasir-POS Implementasi Plan — Patch Log
-latest_patch_id: PATCH-0004
-total_entries: 5
+latest_patch_id: PATCH-0014
+total_entries: 14
 ---
 
 # PATCHLOG.md — Log Perubahan per Subtask
@@ -12,6 +12,129 @@ total_entries: 5
 > **Wajib diisi setiap kali sebuah subtask (task.subtask, mis. 0.1, 1.2, dst.) selesai dikerjakan.**
 
 <!-- ENTRY BARU DITAMBAHKAN DI SINI (tepat di bawah baris ini, di ATAS entri lama) -->
+
+## PATCH-0014
+**Task ID:** 2.5
+**Tanggal:** 2026-07-30
+**Judul:** Halaman login frontend
+**Deskripsi:** UI login dark-theme sesuai token PRD §17, tampilkan sisa percobaan/lockout
+**File Berubah:**
+- frontend/src/pages/login.tsx
+**Bundle Zip:** implementasi_plan/bundles/2.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0013
+**Task ID:** 2.4
+**Tanggal:** 2026-07-30
+**Judul:** Middleware otorisasi per-role di setiap endpoint
+**Deskripsi:** Validasi role di server untuk semua endpoint, single source access matrix
+**File Berubah:**
+- backend/app/auth/access_matrix.py
+- backend/app/auth/require_role.py
+**Bundle Zip:** implementasi_plan/bundles/2.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0012
+**Task ID:** 2.3
+**Tanggal:** 2026-07-30
+**Judul:** Session/JWT + idle timeout 60 menit
+**Deskripsi:** Idle timeout dikonfigurasi via env SESSION_TIMEOUT
+**File Berubah:**
+- backend/app/auth/session.py
+**Bundle Zip:** implementasi_plan/bundles/2.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0011
+**Task ID:** 2.2
+**Tanggal:** 2026-07-30
+**Judul:** Lockout 5x gagal / 5 menit
+**Deskripsi:** Counter percobaan gagal per user + auto-lockout 300 detik
+**File Berubah:**
+- backend/app/auth/lockout.py
+**Bundle Zip:** implementasi_plan/bundles/2.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0010
+**Task ID:** 2.1
+**Tanggal:** 2026-07-30
+**Judul:** Endpoint login + password hashing
+**Deskripsi:** POST /auth/login dengan hashing setara PBKDF2 310k, update last_login
+**File Berubah:**
+- backend/app/auth/login.py
+- backend/app/auth/security.py
+**Bundle Zip:** implementasi_plan/bundles/2.1.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0009
+**Task ID:** 1.5
+**Tanggal:** 2026-07-30
+**Judul:** Script migrasi data lama SQLite -> RDBMS baru
+**Deskripsi:** One-off migration script + dry-run mode + validasi jumlah baris
+**File Berubah:**
+- scripts/migrate_legacy_sqlite.py
+**Bundle Zip:** implementasi_plan/bundles/1.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0008
+**Task ID:** 1.4
+**Tanggal:** 2026-07-30
+**Judul:** Keputusan & migrasi bonus_kasir/transaksi_bonus
+**Deskripsi:** Finalisasi apakah bonus_kasir diimplementasikan penuh atau dihapus dari skema
+**File Berubah:**
+- migrations/0004_bonus_kasir_decision.sql
+- implementasi_plan/decisions/0004-bonus-kasir.md
+**Bundle Zip:** implementasi_plan/bundles/1.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0007
+**Task ID:** 1.3
+**Tanggal:** 2026-07-30
+**Judul:** Migrasi tabel pengeluaran, users, activity_log
+**Deskripsi:** Kategori pengeluaran disatukan + CHECK constraint, skema users & audit trail
+**File Berubah:**
+- migrations/0003_pengeluaran_users_log.sql
+**Bundle Zip:** implementasi_plan/bundles/1.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0006
+**Task ID:** 1.2
+**Tanggal:** 2026-07-30
+**Judul:** Migrasi tabel transaksi & transaksi_detail
+**Deskripsi:** Tambah kolom is_bonus eksplisit, satukan kolom timestamp
+**File Berubah:**
+- migrations/0002_transaksi.sql
+**Bundle Zip:** implementasi_plan/bundles/1.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0005
+**Task ID:** 1.1
+**Tanggal:** 2026-07-30
+**Judul:** Migrasi tabel produk, produk_batch, pelanggan
+**Deskripsi:** Skema inti inventory + FIFO batch + pelanggan, keputusan dead columns didokumentasikan
+**File Berubah:**
+- migrations/0001_produk_batch_pelanggan.sql
+**Bundle Zip:** implementasi_plan/bundles/1.1.zip
+**Status:** done
+**Catatan:** -
+
 
 ## PATCH-0004
 **Task ID:** 0.4
