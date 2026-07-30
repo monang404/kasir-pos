@@ -1,7 +1,7 @@
 ---
 title: kasir-POS Implementasi Plan — Patch Log
-latest_patch_id: PATCH-0014
-total_entries: 14
+latest_patch_id: PATCH-0022
+total_entries: 22
 ---
 
 # PATCHLOG.md — Log Perubahan per Subtask
@@ -12,6 +12,102 @@ total_entries: 14
 > **Wajib diisi setiap kali sebuah subtask (task.subtask, mis. 0.1, 1.2, dst.) selesai dikerjakan.**
 
 <!-- ENTRY BARU DITAMBAHKAN DI SINI (tepat di bawah baris ini, di ATAS entri lama) -->
+
+## PATCH-0022
+**Task ID:** 3.8
+**Tanggal:** 2026-07-30
+**Judul:** Test end-to-end modul kasir
+**Deskripsi:** Test checkout atomic: stok cukup/tidak cukup, bonus, diskon, FIFO lintas batch
+**File Berubah:**
+- backend/app/kasir/tests/test_checkout_service.py
+**Bundle Zip:** implementasi_plan/bundles/3.8.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0021
+**Task ID:** 3.7
+**Tanggal:** 2026-07-30
+**Judul:** Struk transaksi: cetak + copy WA
+**Deskripsi:** Render struk monospace, window.print + copy clipboard format WA
+**File Berubah:**
+- frontend/src/components/kasir/StrukDialog.tsx
+**Bundle Zip:** implementasi_plan/bundles/3.7.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0020
+**Task ID:** 3.6
+**Tanggal:** 2026-07-30
+**Judul:** Dialog pembayaran
+**Deskripsi:** Kalkulasi kembalian real-time + tombol nominal cepat
+**File Berubah:**
+- frontend/src/components/kasir/PembayaranDialog.tsx
+**Bundle Zip:** implementasi_plan/bundles/3.6.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0019
+**Task ID:** 3.5
+**Tanggal:** 2026-07-30
+**Judul:** Halaman kasir utama
+**Deskripsi:** Layout produk + keranjang + pilih pelanggan, styling khusus baris bonus
+**File Berubah:**
+- frontend/src/pages/KasirPage.tsx
+**Bundle Zip:** implementasi_plan/bundles/3.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0018
+**Task ID:** 3.4
+**Tanggal:** 2026-07-30
+**Judul:** Dialog tambah ke keranjang
+**Deskripsi:** Form harga/diskon/tinta/bonus + live preview + auto-merge non-bonus
+**File Berubah:**
+- frontend/src/components/kasir/AddToCartDialog.tsx
+**Bundle Zip:** implementasi_plan/bundles/3.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0017
+**Task ID:** 3.3
+**Tanggal:** 2026-07-30
+**Judul:** Endpoint checkout + fix kode transaksi di response
+**Deskripsi:** Response sukses pakai kode TRX asli, bukan ID numerik (fix bug PRD 15.13)
+**File Berubah:**
+- backend/app/kasir/checkout_endpoint.py
+**Bundle Zip:** implementasi_plan/bundles/3.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0016
+**Task ID:** 3.2
+**Tanggal:** 2026-07-30
+**Judul:** Service checkout atomic
+**Deskripsi:** Gabungkan validasi fail-fast + semantik bonus tetap potong stok, dalam 1 DB transaction
+**File Berubah:**
+- backend/app/kasir/checkout_service.py
+**Bundle Zip:** implementasi_plan/bundles/3.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0015
+**Task ID:** 3.1
+**Tanggal:** 2026-07-30
+**Judul:** Endpoint daftar produk kasir
+**Deskripsi:** Search produk untuk kasir, sembunyikan stok<=0
+**File Berubah:**
+- backend/app/kasir/list_produk.py
+**Bundle Zip:** implementasi_plan/bundles/3.1.zip
+**Status:** done
+**Catatan:** -
+
 
 ## PATCH-0014
 **Task ID:** 2.5

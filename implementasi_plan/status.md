@@ -12,6 +12,14 @@ current_task: "1.1"
 
 | Task ID | Judul Subtask | Status | Mulai | Selesai | Bundle Zip | Catatan |
 |---|---|---|---|---|---|---|
+| 3.8 | Test end-to-end modul kasir | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.8.zip |  |
+| 3.7 | Struk transaksi: cetak + copy WA | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.7.zip |  |
+| 3.6 | Dialog pembayaran | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.6.zip |  |
+| 3.5 | Halaman kasir utama | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.5.zip |  |
+| 3.4 | Dialog tambah ke keranjang | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.4.zip |  |
+| 3.3 | Endpoint checkout + fix kode transaksi di response | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.3.zip |  |
+| 3.2 | Service checkout atomic | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.2.zip |  |
+| 3.1 | Endpoint daftar produk kasir | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.1.zip |  |
 | 2.5 | Halaman login frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/2.5.zip |  |
 | 2.4 | Middleware otorisasi per-role di setiap endpoint | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/2.4.zip |  |
 | 2.3 | Session/JWT + idle timeout 60 menit | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/2.3.zip |  |
