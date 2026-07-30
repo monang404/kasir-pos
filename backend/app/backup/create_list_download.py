@@ -35,7 +35,8 @@ def do_backup(label: str = "") -> str:
     Buat backup dump DB. Untuk PostgreSQL menggunakan pg_dump.
     Return path file backup yang dibuat.
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    from datetime import timezone
+    timestamp = datetime.now(timezone.utc).astimezone().strftime("%Y%m%d_%H%M%S")
     safe_label = label.replace(" ", "_")[:30] if label else ""
     filename = f"backup_{timestamp}{'_' + safe_label if safe_label else ''}.sql.gz"
     filepath = os.path.join(BACKUP_DIR, filename)
@@ -77,7 +78,8 @@ def list_backups():
         if f.endswith(".sql.gz"):
             fp = os.path.join(BACKUP_DIR, f)
             size = os.path.getsize(fp)
-            mtime = datetime.fromtimestamp(os.path.getmtime(fp))
+            from datetime import timezone
+            mtime = datetime.fromtimestamp(os.path.getmtime(fp), tz=timezone.utc).astimezone()
             files.append({
                 "filename": f,
                 "size": format_filesize(size),
@@ -93,27 +95,24 @@ def create_backup(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    filepath = do_backup(label or "")
+    filename = os.path.basename(filepath)
+    size = format_filesize(os.path.getsize(filepath))
+
     try:
-        filepath = do_backup(label or "")
-        filename = os.path.basename(filepath)
-        size = format_filesize(os.path.getsize(filepath))
-
-        try:
-            db.execute(text("""
-                INSERT INTO activity_log (user_id, username, role, aksi, modul, target_info)
-                VALUES (:uid, :uname, :role, 'CREATE', 'backup', :info)
-            """), {
-                "uid": current_user.get("id"), "uname": current_user.get("username"),
-                "role": current_user.get("role"),
-                "info": f"Backup dibuat: {filename} ({size})"
-            })
-            db.commit()
-        except Exception:
-            pass
-
-        return {"message": "Backup berhasil dibuat", "filename": filename, "size": size}
+        db.execute(text("""
+            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_info)
+            VALUES (:uid, :uname, :role, 'CREATE', 'backup', :info)
+        """), {
+            "uid": current_user.get("id"), "uname": current_user.get("username"),
+            "role": current_user.get("role"),
+            "info": f"Backup dibuat: {filename} ({size})"
+        })
+        db.commit()
     except Exception:
-        raise
+        pass
+
+    return {"message": "Backup berhasil dibuat", "filename": filename, "size": size}
 
 
 @router.get("/download/{filename}", dependencies=[Depends(check_access)])

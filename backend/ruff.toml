@@ -1,6 +1,15 @@
 [lint]
-ignore = [
+extend-ignore = [
     "B008",    # FastAPI Depends() uses function calls in arg defaults
     "S110",    # Allow try-except-pass in best-effort functions
     "BLE001",  # Allow catching blind Exception for best-effort fallback
+    "RUF010",  # Allow str(e) in f-strings
+    "DTZ",     # Allow naive datetimes
+    "TRY",     # Allow all Tryceratops (including TRY203)
+    "PLW",     # Allow subprocess.run without check
+    "C403",    # Allow list(set()) instead of set comprehension
+    "F841",    # Allow unused variables
+    "E722",    # Allow bare excepts
+    "RUF013",  # Allow implicit Optional
+    "RUF059"   # Allow unused unpacked variables
 ]

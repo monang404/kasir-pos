@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.auth.require_role import RequireModule
-from app.database import get_db, SessionLocal
+from app.database import SessionLocal, get_db
 from app.ml.job_infra import get_or_trigger_ml_task
 
 try:
