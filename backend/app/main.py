@@ -53,6 +53,20 @@ app.include_router(pelanggan_crud_router)
 app.include_router(pelanggan_delete_router)
 app.include_router(pengeluaran_crud_router)
 
+# Dashboard routers
+from app.dashboard.stats import router as dashboard_stats_router
+from app.dashboard.charts import router as dashboard_charts_router
+app.include_router(dashboard_stats_router)
+app.include_router(dashboard_charts_router)
+
+# Laporan routers
+from app.laporan.ringkasan_transaksi_produk import router as laporan_rtp_router
+from app.laporan.pelanggan_stok_pengeluaran import router as laporan_psp_router
+from app.laporan.export_xlsx import router as laporan_export_router
+app.include_router(laporan_rtp_router)
+app.include_router(laporan_psp_router)
+app.include_router(laporan_export_router)
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "kasir-pos-backend"}

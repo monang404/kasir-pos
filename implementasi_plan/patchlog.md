@@ -1,7 +1,7 @@
 ---
 title: kasir-POS Implementasi Plan — Patch Log
-latest_patch_id: PATCH-0041
-total_entries: 41
+latest_patch_id: PATCH-0048
+total_entries: 48
 ---
 
 # PATCHLOG.md — Log Perubahan per Subtask
@@ -12,6 +12,90 @@ total_entries: 41
 > **Wajib diisi setiap kali sebuah subtask (task.subtask, mis. 0.1, 1.2, dst.) selesai dikerjakan.**
 
 <!-- ENTRY BARU DITAMBAHKAN DI SINI (tepat di bawah baris ini, di ATAS entri lama) -->
+
+## PATCH-0048
+**Task ID:** 7.7
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Laporan frontend 6 tab
+**Deskripsi:** Filter global + orkestrasi reload semua tab + tombol ekspor
+**File Berubah:**
+- frontend/src/pages/LaporanPage.tsx
+**Bundle Zip:** implementasi_plan/bundles/7.7.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0047
+**Task ID:** 7.6
+**Tanggal:** 2026-07-30
+**Judul:** Ekspor laporan xlsx dark-theme
+**Deskripsi:** Styling manual mereplikasi tema gelap aplikasi ke file Excel
+**File Berubah:**
+- backend/app/laporan/export_xlsx.py
+**Bundle Zip:** implementasi_plan/bundles/7.6.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0046
+**Task ID:** 7.5
+**Tanggal:** 2026-07-30
+**Judul:** Endpoint laporan pelanggan/stok/pengeluaran
+**Deskripsi:** Top spender, snapshot stok real-time, breakdown pengeluaran
+**File Berubah:**
+- backend/app/laporan/pelanggan_stok_pengeluaran.py
+**Bundle Zip:** implementasi_plan/bundles/7.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0045
+**Task ID:** 7.4
+**Tanggal:** 2026-07-30
+**Judul:** Endpoint laporan ringkasan/transaksi/produk
+**Deskripsi:** Filter bulan & rentang tanggal, ringkasan naratif otomatis
+**File Berubah:**
+- backend/app/laporan/ringkasan_transaksi_produk.py
+**Bundle Zip:** implementasi_plan/bundles/7.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0044
+**Task ID:** 7.3
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Dashboard frontend
+**Deskripsi:** Chart.js/Recharts untuk semua visual dashboard + auto-refresh 60 detik
+**File Berubah:**
+- frontend/src/pages/DashboardPage.tsx
+**Bundle Zip:** implementasi_plan/bundles/7.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0043
+**Task ID:** 7.2
+**Tanggal:** 2026-07-30
+**Judul:** Endpoint chart dashboard
+**Deskripsi:** Data chart bulanan/pie/7-hari dengan warna semantik dipertahankan
+**File Berubah:**
+- backend/app/dashboard/charts.py
+**Bundle Zip:** implementasi_plan/bundles/7.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0042
+**Task ID:** 7.1
+**Tanggal:** 2026-07-30
+**Judul:** Endpoint dashboard stat & growth card
+**Deskripsi:** Perhitungan omzet/laba + growth vs bulan lalu, null jika prev=0
+**File Berubah:**
+- backend/app/dashboard/stats.py
+**Bundle Zip:** implementasi_plan/bundles/7.1.zip
+**Status:** done
+**Catatan:** -
+
 
 ## PATCH-0041
 **Task ID:** 6.5

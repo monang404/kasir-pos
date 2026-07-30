@@ -12,6 +12,13 @@ current_task: "1.1"
 
 | Task ID | Judul Subtask | Status | Mulai | Selesai | Bundle Zip | Catatan |
 |---|---|---|---|---|---|---|
+| 7.7 | Halaman Laporan frontend 6 tab | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.7.zip |  |
+| 7.6 | Ekspor laporan xlsx dark-theme | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.6.zip |  |
+| 7.5 | Endpoint laporan pelanggan/stok/pengeluaran | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.5.zip |  |
+| 7.4 | Endpoint laporan ringkasan/transaksi/produk | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.4.zip |  |
+| 7.3 | Halaman Dashboard frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.3.zip |  |
+| 7.2 | Endpoint chart dashboard | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.2.zip |  |
+| 7.1 | Endpoint dashboard stat & growth card | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/7.1.zip |  |
 | 6.5 | Halaman Pengeluaran frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/6.5.zip |  |
 | 6.4 | CRUD pengeluaran kategori tunggal | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/6.4.zip |  |
 | 6.3 | Halaman Pelanggan + dialog detail riwayat | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/6.3.zip |  |
