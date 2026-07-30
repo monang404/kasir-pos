@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 import math
 import statistics
-from typing import Optional
 
-from app.database import get_db, SessionLocal
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import SessionLocal, get_db
 from app.ml.job_infra import get_or_trigger_ml_task
 
 router = APIRouter(prefix="/ml", tags=["ml"])

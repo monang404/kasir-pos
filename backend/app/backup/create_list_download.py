@@ -1,17 +1,16 @@
+import gzip
+import os
+import subprocess
+from datetime import datetime
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import Optional
-import os, json
-from datetime import datetime
-import subprocess
-import gzip
-import shutil
+from sqlalchemy.orm import Session
 
-from app.database import get_db, DATABASE_URL
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import DATABASE_URL, get_db
 
 router = APIRouter(prefix="/backup", tags=["backup"])
 check_access = RequireModule("backup")
@@ -90,7 +89,7 @@ def list_backups():
 
 @router.post("/create", dependencies=[Depends(check_access)])
 def create_backup(
-    label: Optional[str] = None,
+    label: str | None = None,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -113,7 +112,7 @@ def create_backup(
             pass
 
         return {"message": "Backup berhasil dibuat", "filename": filename, "size": size}
-    except Exception as e:
+    except Exception:
         raise
 
 

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import get_db
 from app.inventory.fifo_service import keluar_fifo
 
 router = APIRouter(prefix="/transaksi", tags=["transaksi"])

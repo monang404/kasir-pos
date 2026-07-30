@@ -7,14 +7,15 @@ check untuk memverifikasi CI (lint + test) berjalan di atas scaffold kosong.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.auth.login import router as auth_router
-from app.kasir.list_produk import router as list_produk_router
-from app.kasir.checkout_endpoint import router as checkout_router
-from app.inventory.produk_crud import router as inv_produk_router
-from app.inventory.delete_produk import router as inv_delete_router
-from app.inventory.stock_adjustment import router as inv_adjustment_router
-from app.inventory.import_excel import router as inv_import_router
 from app.inventory.batch_crud import router as inv_batch_router
+from app.inventory.delete_produk import router as inv_delete_router
+from app.inventory.import_excel import router as inv_import_router
+from app.inventory.produk_crud import router as inv_produk_router
+from app.inventory.stock_adjustment import router as inv_adjustment_router
+from app.kasir.checkout_endpoint import router as checkout_router
+from app.kasir.list_produk import router as list_produk_router
 
 app = FastAPI(title="kasir-POS API", version="0.0.1")
 
@@ -36,10 +37,11 @@ app.include_router(inv_adjustment_router)
 app.include_router(inv_import_router)
 app.include_router(inv_batch_router)
 # Transaksi routers
-from app.transaksi.list_transaksi import router as trx_list_router
 from app.transaksi.delete_transaksi import router as trx_delete_router
 from app.transaksi.edit_item import router as trx_edit_router
 from app.transaksi.ganti_pelanggan import router as trx_pelanggan_router
+from app.transaksi.list_transaksi import router as trx_list_router
+
 app.include_router(trx_list_router)
 app.include_router(trx_delete_router)
 app.include_router(trx_edit_router)
@@ -49,30 +51,34 @@ app.include_router(trx_pelanggan_router)
 from app.pelanggan.crud import router as pelanggan_crud_router
 from app.pelanggan.delete import router as pelanggan_delete_router
 from app.pengeluaran.crud import router as pengeluaran_crud_router
+
 app.include_router(pelanggan_crud_router)
 app.include_router(pelanggan_delete_router)
 app.include_router(pengeluaran_crud_router)
 
 # Dashboard routers
-from app.dashboard.stats import router as dashboard_stats_router
 from app.dashboard.charts import router as dashboard_charts_router
+from app.dashboard.stats import router as dashboard_stats_router
+
 app.include_router(dashboard_stats_router)
 app.include_router(dashboard_charts_router)
 
 # Laporan routers
-from app.laporan.ringkasan_transaksi_produk import router as laporan_rtp_router
-from app.laporan.pelanggan_stok_pengeluaran import router as laporan_psp_router
 from app.laporan.export_xlsx import router as laporan_export_router
+from app.laporan.pelanggan_stok_pengeluaran import router as laporan_psp_router
+from app.laporan.ringkasan_transaksi_produk import router as laporan_rtp_router
+
 app.include_router(laporan_rtp_router)
 app.include_router(laporan_psp_router)
 app.include_router(laporan_export_router)
 
 # ML / Intelligence routers
-from app.ml.prediksi_stok import router as ml_stok_router
-from app.ml.prediksi_omzet import router as ml_omzet_router
-from app.ml.prediksi_demand import router as ml_demand_router
 from app.ml.bonus_kasir import router as ml_bonus_router
+from app.ml.prediksi_demand import router as ml_demand_router
+from app.ml.prediksi_omzet import router as ml_omzet_router
+from app.ml.prediksi_stok import router as ml_stok_router
 from app.ml.promo_recommendation import router as ml_promo_router
+
 app.include_router(ml_stok_router)
 app.include_router(ml_omzet_router)
 app.include_router(ml_demand_router)
@@ -80,11 +86,12 @@ app.include_router(ml_bonus_router)
 app.include_router(ml_promo_router)
 
 # Task 9: Users, Activity Log, Backup
-from app.users.crud import router as users_crud_router
-from app.users.delete import router as users_delete_router
 from app.activity_log.list_log import router as activity_log_router
 from app.backup.create_list_download import router as backup_cld_router
 from app.backup.restore_delete import router as backup_rd_router
+from app.users.crud import router as users_crud_router
+from app.users.delete import router as users_delete_router
+
 app.include_router(users_crud_router)
 app.include_router(users_delete_router)
 app.include_router(activity_log_router)

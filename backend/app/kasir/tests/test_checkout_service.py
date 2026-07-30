@@ -1,9 +1,14 @@
+
 import pytest
-from datetime import datetime
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from app.kasir.checkout_service import proses_checkout, CheckoutRequest, CheckoutItem, InsufficientStockException
+from app.kasir.checkout_service import (
+    CheckoutItem,
+    CheckoutRequest,
+    InsufficientStockException,
+    proses_checkout,
+)
 
 # Setup in-memory SQLite test database
 engine = create_engine("sqlite:///:memory:")

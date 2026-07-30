@@ -1,9 +1,9 @@
+
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
 
-from app.inventory.fifo_service import tambah_stok, keluar_fifo
+from app.inventory.fifo_service import keluar_fifo, tambah_stok
 
 # Setup SQLite in-memory untuk testing
 engine = create_engine("sqlite:///:memory:")

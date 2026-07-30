@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import get_db
 from app.laporan.ringkasan_transaksi_produk import build_date_filter
 
 router = APIRouter(prefix="/laporan", tags=["laporan"])
@@ -13,9 +13,9 @@ check_access = RequireModule("laporan")
 @router.get("/pelanggan", dependencies=[Depends(check_access)])
 def get_laporan_pelanggan(
     mode: str = Query("bulan"),
-    bulan: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    bulan: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     db: Session = Depends(get_db)
 ):
     where_trx, params = build_date_filter(mode, bulan, start_date, end_date, "t.tanggal")
@@ -84,9 +84,9 @@ def get_laporan_stok(db: Session = Depends(get_db)):
 @router.get("/pengeluaran", dependencies=[Depends(check_access)])
 def get_laporan_pengeluaran(
     mode: str = Query("bulan"),
-    bulan: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    bulan: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     db: Session = Depends(get_db)
 ):
     where_peng, params = build_date_filter(mode, bulan, start_date, end_date, "tanggal")

@@ -1,12 +1,12 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import Optional
+from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import get_db
 
 router = APIRouter(prefix="/pelanggan", tags=["pelanggan"])
 check_access = RequireModule("pelanggan")
@@ -14,14 +14,14 @@ check_access = RequireModule("pelanggan")
 
 class PelangganBase(BaseModel):
     nama: str = Field(..., min_length=1)
-    no_hp: Optional[str] = None
-    alamat: Optional[str] = None
-    keterangan: Optional[str] = None
+    no_hp: str | None = None
+    alamat: str | None = None
+    keterangan: str | None = None
 
 
 @router.get("/", dependencies=[Depends(check_access)])
 def list_pelanggan(
-    q: Optional[str] = None,
+    q: str | None = None,
     db: Session = Depends(get_db)
 ):
     query = "SELECT id, nama, no_hp, alamat FROM pelanggan"

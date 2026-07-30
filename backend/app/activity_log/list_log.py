@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import get_db
 
 router = APIRouter(prefix="/activity-log", tags=["activity_log"])
 check_access = RequireModule("activity_log")
@@ -15,10 +15,10 @@ PAGE_SIZE = 100
 
 @router.get("/", dependencies=[Depends(check_access)])
 def list_activity_log(
-    modul: Optional[str] = Query(None),
-    aksi: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    modul: str | None = Query(None),
+    aksi: str | None = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     db: Session = Depends(get_db)
 ):
     conditions = []

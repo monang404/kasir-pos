@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, Query, Response
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
 import io
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, Query, Response
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import get_db
 from app.laporan.ringkasan_transaksi_produk import build_date_filter
 
 router = APIRouter(prefix="/laporan", tags=["laporan"])
@@ -88,9 +88,9 @@ def create_excel_file(title: str, headers: list, data: list) -> bytes:
 def export_laporan_excel(
     tab: str,
     mode: str = Query("bulan"),
-    bulan: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    bulan: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     db: Session = Depends(get_db)
 ):
     where_clause, params = build_date_filter(mode, bulan, start_date, end_date, "tanggal")

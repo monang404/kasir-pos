@@ -1,13 +1,14 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from datetime import datetime, timezone
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
+from app.auth.lockout import get_lockout_status, record_failed_attempt, reset_attempts
+from app.auth.security import create_access_token, verify_password
 from app.database import get_db
-from app.auth.security import verify_password, create_access_token
-from app.auth.lockout import record_failed_attempt, get_lockout_status, reset_attempts
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import get_db
 
 router = APIRouter(prefix="/transaksi", tags=["transaksi"])
 check_access = RequireModule("transaksi")
@@ -13,9 +13,9 @@ check_access = RequireModule("transaksi")
 @router.get("/", dependencies=[Depends(check_access)])
 def list_transaksi(
     db: Session = Depends(get_db),
-    bulan: Optional[str] = Query(None, description="Format YYYY-MM, misal 2024-01"),
-    pelanggan_id: Optional[int] = Query(None),
-    q: Optional[str] = Query(None, description="Search kode transaksi / nama pelanggan"),
+    bulan: str | None = Query(None, description="Format YYYY-MM, misal 2024-01"),
+    pelanggan_id: int | None = Query(None),
+    q: str | None = Query(None, description="Search kode transaksi / nama pelanggan"),
 ):
     # ─── Stats (tidak terpengaruh filter bulan/pelanggan/search) ───
     total_trx = db.execute(text("SELECT COUNT(*) FROM transaksi")).scalar() or 0

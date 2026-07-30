@@ -1,10 +1,12 @@
+
 from fastapi import Depends, HTTPException
-from typing import List, Callable
-from app.auth.session import get_current_user
+
 from app.auth.access_matrix import has_access
+from app.auth.session import get_current_user
+
 
 class RequireRole:
-    def __init__(self, allowed_roles: List[str]):
+    def __init__(self, allowed_roles: list[str]):
         self.allowed_roles = [r.lower() for r in allowed_roles]
 
     def __call__(self, user: dict = Depends(get_current_user)):

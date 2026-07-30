@@ -2,8 +2,6 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from app.inventory.fifo_service import tambah_stok
-
 engine = create_engine("sqlite:///:memory:")
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

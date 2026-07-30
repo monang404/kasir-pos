@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 from datetime import datetime, timedelta
 
-from app.database import get_db
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import get_db
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 check_access = RequireModule("dashboard")
@@ -82,8 +83,7 @@ def get_dashboard_charts(db: Session = Depends(get_db)):
     # Perbaiki Laba Bersih untuk pie: Laba kotor - pengeluaran
     laba_bersih = laba_kotor - pengeluaran
     # Jika laba bersih negatif, di pie chart kita tampilkan 0 (karena tidak bisa slice negatif)
-    if laba_bersih < 0:
-        laba_bersih = 0
+    laba_bersih = max(laba_bersih, 0)
 
     pie_komposisi = {
         "laba_bersih": laba_bersih,

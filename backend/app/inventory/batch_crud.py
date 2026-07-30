@@ -1,13 +1,13 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 from sqlalchemy import text
-from datetime import datetime, timezone
-from typing import Optional
+from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import get_db
 
 router = APIRouter(prefix="/inventory/batch", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")
@@ -17,7 +17,7 @@ class TambahBatchRequest(BaseModel):
     produk_id: int
     qty: int = Field(..., gt=0)
     harga_beli: float = Field(..., ge=0)
-    tanggal_masuk: Optional[datetime] = None
+    tanggal_masuk: datetime | None = None
 
 
 @router.get("/{produk_id}", dependencies=[Depends(check_inventory_access)])

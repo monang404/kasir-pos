@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-import os, subprocess, gzip
+import gzip
+import os
 import re
+import subprocess
 
-from app.database import get_db, DATABASE_URL
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.backup.create_list_download import BACKUP_DIR, do_backup
+from app.database import DATABASE_URL, get_db
 
 router = APIRouter(prefix="/backup", tags=["backup"])
 check_access = RequireModule("backup")
@@ -35,7 +38,7 @@ def restore_backup(
             status_code=500,
             detail=(
                 f"RESTORE DIBATALKAN: Gagal membuat safety backup sebelum restore. "
-                f"Database Anda TIDAK diubah. Error: {str(e)}"
+                f"Database Anda TIDAK diubah. Error: {e!s}"
             )
         )
 
@@ -66,7 +69,7 @@ def restore_backup(
             status_code=500,
             detail=(
                 f"Restore GAGAL setelah safety backup ({safety_name}) berhasil dibuat. "
-                f"Anda bisa menggunakan safety backup untuk memulihkan data. Error: {str(e)}"
+                f"Anda bisa menggunakan safety backup untuk memulihkan data. Error: {e!s}"
             )
         )
 

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import get_db
 
 router = APIRouter(prefix="/inventory/produk", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")

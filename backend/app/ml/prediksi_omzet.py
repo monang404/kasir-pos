@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
 import math
 from datetime import datetime, timedelta
 
-from app.database import get_db, SessionLocal
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import get_db, SessionLocal
 from app.ml.job_infra import get_or_trigger_ml_task
 
 try:
@@ -193,7 +193,7 @@ def compute_prediksi_omzet(db: Session):
         "model_used": model_used,
         "rmse": round(best_rmse, 2),
         "predictions": result_data,
-        "eval_info": f"Model terbaik dipilih otomatis via time-based split."
+        "eval_info": "Model terbaik dipilih otomatis via time-based split."
     }
 
 
@@ -208,7 +208,7 @@ def api_prediksi_omzet(
         compute_func=compute_prediksi_omzet,
         db=db,
         bg_tasks=background_tasks,
-        db_factory=get_db_session,
+        db_factory=SessionLocal,
         max_age_hours=24,
         force_refresh=force_refresh
     )

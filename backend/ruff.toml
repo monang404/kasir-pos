@@ -1,0 +1,6 @@
+[lint]
+ignore = [
+    "B008",    # FastAPI Depends() uses function calls in arg defaults
+    "S110",    # Allow try-except-pass in best-effort functions
+    "BLE001",  # Allow catching blind Exception for best-effort fallback
+]

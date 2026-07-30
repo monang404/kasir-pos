@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.database import get_db
+
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
-from app.kasir.checkout_service import proses_checkout, CheckoutRequest, InsufficientStockException
+from app.database import get_db
+from app.kasir.checkout_service import (
+    CheckoutRequest,
+    InsufficientStockException,
+    proses_checkout,
+)
 
 router = APIRouter(prefix="/kasir", tags=["kasir"])
 check_kasir_access = RequireModule("kasir")
@@ -42,5 +47,5 @@ def checkout_endpoint(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Terjadi kesalahan internal: {str(e)}"
+            detail=f"Terjadi kesalahan internal: {e!s}"
         )

@@ -6,9 +6,10 @@ Usage:
     log_action(db, actor, "CREATE", "produk", str(produk_id), info="...", before=None, after=data)
 """
 import json
-from sqlalchemy.orm import Session
+from typing import Any
+
 from sqlalchemy import text
-from typing import Optional, Any
+from sqlalchemy.orm import Session
 
 
 def log_action(
@@ -18,8 +19,8 @@ def log_action(
     modul: str,
     target_id: str = "",
     info: str = "",
-    before: Optional[Any] = None,
-    after: Optional[Any] = None
+    before: Any | None = None,
+    after: Any | None = None
 ):
     """
     Mencatat satu baris ke activity_log.

@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 from typing import Literal
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
-from app.inventory.fifo_service import tambah_stok, keluar_fifo
+from app.database import get_db
+from app.inventory.fifo_service import keluar_fifo, tambah_stok
 
 router = APIRouter(prefix="/inventory/adjustment", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")

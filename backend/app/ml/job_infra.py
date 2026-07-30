@@ -1,9 +1,12 @@
 import json
-from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from datetime import datetime
+from typing import Any
+
 from fastapi import BackgroundTasks
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 
 # Init table cache
 def init_ml_cache_table(db: Session):
@@ -22,7 +25,7 @@ class MLCacheManager:
         self.db = db
         init_ml_cache_table(db)
 
-    def get_cache(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_cache(self, key: str) -> dict[str, Any] | None:
         row = self.db.execute(
             text("SELECT data, last_updated, status FROM ml_cache WHERE key = :key"),
             {"key": key}
@@ -95,7 +98,7 @@ def get_or_trigger_ml_task(
     db_factory: Callable,
     max_age_hours: int = 24,
     force_refresh: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Helper untuk controller.
     1. Cek cache, jika valid -> return

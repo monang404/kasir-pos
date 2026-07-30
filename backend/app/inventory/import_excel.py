@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-import openpyxl
 from io import BytesIO
 
-from app.database import get_db
+import openpyxl
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import get_db
 
 router = APIRouter(prefix="/inventory/import", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")
@@ -102,7 +103,7 @@ async def import_excel(
                 berhasil += 1
                 
             except Exception as e:
-                errors.append(f"Baris {row_idx}: Error parsing data - {str(e)}")
+                errors.append(f"Baris {row_idx}: Error parsing data - {e!s}")
                 dilewati += 1
                 continue
                 
@@ -133,4 +134,4 @@ async def import_excel(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gagal memproses file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gagal memproses file: {e!s}")

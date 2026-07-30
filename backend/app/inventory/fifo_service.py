@@ -1,7 +1,8 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 from datetime import datetime, timezone
-from typing import Tuple
+
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 
 def tambah_stok(db: Session, produk_id: int, qty: int, harga_beli: float, tanggal_masuk: datetime = None) -> int:
     """
@@ -26,7 +27,7 @@ def tambah_stok(db: Session, produk_id: int, qty: int, harga_beli: float, tangga
     
     return result.id
 
-def keluar_fifo(db: Session, produk_id: int, qty: int) -> Tuple[float, int]:
+def keluar_fifo(db: Session, produk_id: int, qty: int) -> tuple[float, int]:
     """
     Mengeluarkan stok sejumlah qty menggunakan metode FIFO presisi.
     Jika batch habis (qty_sisa == 0), batch akan Dihapus.

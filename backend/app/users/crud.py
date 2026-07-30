@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
-from passlib.context import CryptContext
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from passlib.context import CryptContext
+from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import get_db
 
 router = APIRouter(prefix="/users", tags=["users"])
 check_access = RequireModule("users")
@@ -29,7 +29,7 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     nama_lengkap: str = Field(..., min_length=1)
-    password: Optional[str] = None   # Kosong = tidak ganti password
+    password: str | None = None   # Kosong = tidak ganti password
     role: str
     is_active: int = 1
 

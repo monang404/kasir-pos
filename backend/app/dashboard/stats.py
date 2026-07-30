@@ -1,17 +1,17 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
 from datetime import datetime, timedelta
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import get_db
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 check_access = RequireModule("dashboard")
 
 
-def hitung_growth(curr: float, prev: float) -> Optional[float]:
+def hitung_growth(curr: float, prev: float) -> float | None:
     if prev == 0:
         return None
     return ((curr - prev) / prev) * 100
@@ -19,7 +19,7 @@ def hitung_growth(curr: float, prev: float) -> Optional[float]:
 
 @router.get("/stats", dependencies=[Depends(check_access)])
 def get_dashboard_stats(
-    bulan: Optional[str] = Query(None, description="Format YYYY-MM"),
+    bulan: str | None = Query(None, description="Format YYYY-MM"),
     db: Session = Depends(get_db)
 ):
     # Default to current month if not provided

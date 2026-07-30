@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import List, Optional
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import get_db
 
 router = APIRouter(prefix="/kasir", tags=["kasir"])
 
@@ -13,7 +13,7 @@ check_kasir_access = RequireModule("kasir")
 
 @router.get("/produk", dependencies=[Depends(check_kasir_access)])
 def list_produk_kasir(
-    q: Optional[str] = Query(None, description="Search query untuk nama atau kode produk"),
+    q: str | None = Query(None, description="Search query untuk nama atau kode produk"),
     db: Session = Depends(get_db)
 ):
     """

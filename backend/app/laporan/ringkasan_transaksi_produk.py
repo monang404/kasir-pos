@@ -1,19 +1,19 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
+from app.database import get_db
 
 router = APIRouter(prefix="/laporan", tags=["laporan"])
 check_access = RequireModule("laporan")
 
 def build_date_filter(
     mode: str, 
-    bulan: Optional[str], 
-    start_date: Optional[str], 
-    end_date: Optional[str],
+    bulan: str | None, 
+    start_date: str | None, 
+    end_date: str | None,
     column: str = "tanggal"
 ):
     """Helper to build WHERE clause for dates."""
@@ -28,9 +28,9 @@ def build_date_filter(
 @router.get("/ringkasan", dependencies=[Depends(check_access)])
 def get_laporan_ringkasan(
     mode: str = Query("bulan"),
-    bulan: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    bulan: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     db: Session = Depends(get_db)
 ):
     where_trx, params = build_date_filter(mode, bulan, start_date, end_date, "tanggal")
@@ -88,9 +88,9 @@ def get_laporan_ringkasan(
 @router.get("/transaksi", dependencies=[Depends(check_access)])
 def get_laporan_transaksi(
     mode: str = Query("bulan"),
-    bulan: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    bulan: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     db: Session = Depends(get_db)
 ):
     where_trx, params = build_date_filter(mode, bulan, start_date, end_date, "tanggal")
@@ -122,9 +122,9 @@ def get_laporan_transaksi(
 @router.get("/produk", dependencies=[Depends(check_access)])
 def get_laporan_produk(
     mode: str = Query("bulan"),
-    bulan: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    bulan: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     db: Session = Depends(get_db)
 ):
     where_trx, params = build_date_filter(mode, bulan, start_date, end_date, "t.tanggal")

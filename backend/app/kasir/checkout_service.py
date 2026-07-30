@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import List, Dict, Any
+
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 
 class CheckoutItem(BaseModel):
     produk_id: int
@@ -18,7 +19,7 @@ class CheckoutRequest(BaseModel):
     pelanggan_id: int = None
     metode_bayar: str = "Tunai"
     uang_bayar: float
-    items: List[CheckoutItem]
+    items: list[CheckoutItem]
 
 class InsufficientStockException(Exception):
     def __init__(self, produk_id: int, nama_produk: str, requested: int, available: int):

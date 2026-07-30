@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field, validator
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Optional
 from datetime import date
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field, validator
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
+from app.database import get_db
 
 router = APIRouter(prefix="/pengeluaran", tags=["pengeluaran"])
 check_access = RequireModule("pengeluaran")
@@ -26,7 +26,7 @@ KATEGORI_ALLOWED = [
 class PengeluaranBase(BaseModel):
     tanggal: date
     kategori: str
-    keterangan: Optional[str] = None
+    keterangan: str | None = None
     jumlah: float = Field(..., gt=0)
 
     @validator('kategori')
@@ -37,9 +37,9 @@ class PengeluaranBase(BaseModel):
 
 @router.get("/", dependencies=[Depends(check_access)])
 def list_pengeluaran(
-    bulan: Optional[str] = Query(None, description="Format YYYY-MM"),
-    kategori: Optional[str] = Query(None),
-    q: Optional[str] = Query(None, description="Search kategori / keterangan"),
+    bulan: str | None = Query(None, description="Format YYYY-MM"),
+    kategori: str | None = Query(None),
+    q: str | None = Query(None, description="Search kategori / keterangan"),
     db: Session = Depends(get_db)
 ):
     conditions = []

@@ -1,14 +1,13 @@
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Tuple
 
 # In-memory store untuk percobaan gagal login (username -> (gagal_count, locked_until))
 # Dalam production skala besar disarankan menggunakan Redis
-_lockout_store: Dict[str, Tuple[int, datetime]] = {}
+_lockout_store: dict[str, tuple[int, datetime]] = {}
 
 MAX_ATTEMPTS = 5
 LOCKOUT_SECONDS = 300
 
-def get_lockout_status(username: str) -> Tuple[bool, int, int]:
+def get_lockout_status(username: str) -> tuple[bool, int, int]:
     """
     Returns (is_locked, remaining_seconds, remaining_attempts)
     """
@@ -28,7 +27,7 @@ def get_lockout_status(username: str) -> Tuple[bool, int, int]:
         
     return False, 0, MAX_ATTEMPTS - attempts
 
-def record_failed_attempt(username: str) -> Tuple[bool, int, int]:
+def record_failed_attempt(username: str) -> tuple[bool, int, int]:
     """
     Mencatat percobaan gagal.
     Returns (is_locked, remaining_seconds, remaining_attempts)
