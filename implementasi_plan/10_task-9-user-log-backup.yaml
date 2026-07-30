@@ -1,0 +1,136 @@
+task:
+  id: "9"
+  title: "User Management, Activity Log, Backup/Restore"
+  goal: >
+    Fitur admin-only; pertahankan pola audit trail yang sudah baik (dicatat di layer data,
+    bukan UI), sesuai docs/PRD.md §18 poin 9.
+  depends_on: ["2"]
+  references: ["docs/PRD.md §14b", "docs/PRD.md §14c", "docs/PRD.md §14d"]
+
+subtasks:
+  - id: "9.1"
+    title: "CRUD user (admin-only) + proteksi diri sendiri"
+    description: >
+      Tambah/edit user (username read-only saat edit, password wajib saat tambah/kosongkan
+      saat edit = tidak berubah), role dropdown, checkbox aktif. User yang sedang login
+      tidak boleh punya menu aksi hapus/nonaktifkan akun sendiri.
+    deliverables:
+      - "backend/users/crud.*"
+      - "frontend/users/UsersPage.*"
+    acceptance_criteria:
+      - "User mencoba menghapus/menonaktifkan akun sendiri -> ditolak di level API"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 9.1
+        --title "CRUD user + proteksi diri sendiri"
+        --desc "Password rules add/edit, proteksi self-delete/deactivate di API"
+        --files backend/users/crud.py,frontend/users/UsersPage.tsx --status done
+
+  - id: "9.2"
+    title: "Hapus user: soft-delete jika pernah bertransaksi, hard-delete jika belum"
+    description: >
+      Jika user pernah menjadi kasir_id di suatu transaksi -> set is_active=0 saja
+      (soft-delete demi integritas histori). Jika belum pernah -> hard delete permanen.
+      Kedua kasus tercatat di activity_log dengan detail yang menjelaskan mana yang terjadi.
+    deliverables:
+      - "backend/users/delete.*"
+    acceptance_criteria:
+      - "User dengan riwayat transaksi -> soft-delete; tanpa riwayat -> hard delete; keduanya tercatat di log"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 9.2
+        --title "Hapus user: soft/hard delete sesuai riwayat"
+        --desc "Guard integritas histori transaksi + audit log jelas"
+        --files backend/users/delete.py --status done
+
+  - id: "9.3"
+    title: "Activity log: pencatatan otomatis di layer repository/service"
+    description: >
+      Setiap operasi CREATE/UPDATE/DELETE penting (produk, batch, transaksi, item transaksi,
+      pelanggan, pengeluaran, user, backup/restore) mencatat ke activity_log dari layer
+      data/service (bukan dari UI/controller), dengan before/after JSON untuk UPDATE.
+      Kegagalan mencatat log TIDAK PERNAH menggagalkan operasi utama (best-effort, try/catch).
+    deliverables:
+      - "backend/activity_log/logger.*"
+    acceptance_criteria:
+      - "Simulasi kegagalan penulisan log tidak menggagalkan operasi utama (transaksi tetap sukses)"
+      - "Entry UPDATE menyimpan before/after dalam format JSON valid"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 9.3
+        --title "Activity log otomatis di layer service"
+        --desc "Before/after JSON, best-effort tanpa menggagalkan operasi utama"
+        --files backend/activity_log/logger.py --status done
+
+  - id: "9.4"
+    title: "Halaman Activity Log frontend: filter, stat card, detail JSON"
+    description: >
+      4 stat card (total, hari ini, hapus, edit — 2 terakhir ikut filter aktif), filter modul/
+      aksi/rentang tanggal (default 30 hari), search client-side dari halaman termuat
+      (PAGE_SIZE terbatas), dialog detail dengan pretty-print JSON untuk field before/after.
+      Tombol hapus log >90 hari.
+    deliverables:
+      - "frontend/activity-log/ActivityLogPage.*"
+    acceptance_criteria:
+      - "Dialog detail menampilkan JSON before/after dengan format rapi, fallback teks polos jika bukan JSON valid"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 9.4
+        --title "Halaman Activity Log frontend"
+        --desc "Filter + stat card + detail JSON pretty-print + hapus log lama"
+        --files frontend/activity-log/ActivityLogPage.tsx --status done
+
+  - id: "9.5"
+    title: "Backup: buat, list, download"
+    description: >
+      Buat backup (dump DB terkompresi, nama file dengan timestamp + catatan opsional),
+      list backup tersimpan (info ukuran otomatis format B/KB/MB/GB), download via link
+      langsung (ganti file dialog OS lama). Tercatat di activity log.
+    deliverables:
+      - "backend/backup/create_list_download.*"
+    acceptance_criteria:
+      - "File backup yang dibuat bisa didownload dan berisi dump valid dari DB saat ini"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 9.5
+        --title "Backup: buat, list, download"
+        --desc "Dump DB terkompresi + link download langsung, tercatat di log"
+        --files backend/backup/create_list_download.py --status done
+
+  - id: "9.6"
+    title: "Restore dengan safety backup wajib + hapus backup"
+    description: >
+      Restore: peringatan dua-lapis, WAJIB membuat safety backup ("pre-restore-safety")
+      sebelum restore apapun — jika safety backup gagal, restore dibatalkan seluruhnya.
+      Setelah restore, beri instruksi jelas ke user (restart service backend, karena tidak
+      ada hot-reload koneksi DB otomatis). Hapus backup: hapus file permanen dengan konfirmasi.
+    deliverables:
+      - "backend/backup/restore_delete.*"
+    acceptance_criteria:
+      - "Simulasi safety backup gagal -> restore otomatis dibatalkan, DB asli tidak tersentuh"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 9.6
+        --title "Restore dengan safety backup wajib"
+        --desc "Restore dibatalkan jika safety backup gagal, hapus backup dengan konfirmasi"
+        --files backend/backup/restore_delete.py --status done
+
+  - id: "9.7"
+    title: "Halaman Backup frontend + keputusan scope kalkulator.py"
+    description: >
+      Info panel (ukuran DB, jumlah transaksi/produk, jumlah backup), tabel backup dengan
+      aksi download/restore/hapus, disclaimer permanen risiko restore. Sekaligus tuntaskan
+      open question kalkulator.py (PRD §18 open question) — dokumentasikan keputusan final
+      apakah diporting sebagai fitur terpisah atau diabaikan.
+    deliverables:
+      - "frontend/backup/BackupPage.*"
+      - "implementasi_plan/decisions/0097-kalkulator-scope.md"
+    acceptance_criteria:
+      - "Keputusan scope kalkulator.py final dan terdokumentasi"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 9.7
+        --title "Halaman Backup frontend + keputusan scope kalkulator.py"
+        --desc "UI backup lengkap + finalisasi open question kalkulator.py"
+        --files frontend/backup/BackupPage.tsx,implementasi_plan/decisions/0097-kalkulator-scope.md
+        --status done

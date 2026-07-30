@@ -1,0 +1,155 @@
+task:
+  id: "3"
+  title: "Kasir / Point of Sale (checkout atomic)"
+  goal: >
+    Bangun modul kasir sebagai satu implementasi checkout ATOMIC yang menggabungkan struktur
+    aman KasirService.checkout() (service layer lama) dengan semantik nyata kasir_page.py
+    (item bonus tetap memotong stok), sesuai rekomendasi docs/PRD.md §9 & §15 poin 1, 15.
+  depends_on: ["1", "2"]
+  references: ["docs/PRD.md §9", "docs/PRD.md §15 poin 1, 6, 13, 15", "docs/PRD.md §16 aturan 1-6"]
+
+subtasks:
+  - id: "3.1"
+    title: "Endpoint daftar produk untuk kasir (search + hide stok<=0)"
+    description: >
+      GET /kasir/produk?q=... mengembalikan produk dengan stok_total > 0 saja (produk stok<=0
+      disembunyikan otomatis, sesuai PRD §9), search case-insensitive di kode & nama.
+    deliverables:
+      - "backend/kasir/list_produk.*"
+    acceptance_criteria:
+      - "Produk dengan stok_total 0 tidak muncul di response, baik tanpa maupun dengan query search"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 3.1
+        --title "Endpoint daftar produk kasir"
+        --desc "Search produk untuk kasir, sembunyikan stok<=0"
+        --files backend/kasir/list_produk.py --status done
+
+  - id: "3.2"
+    title: "Service checkout atomic (gabungan logika lama + guard baru)"
+    description: >
+      Implementasikan satu service checkout dalam SATU database transaction (all-or-nothing,
+      perbaikan §15 poin 15): validasi stok semua item dulu (fail-fast sebelum potong apapun,
+      pola dari KasirService.checkout() lama), lalu untuk tiap item non-bonus akumulasi
+      total & profit, untuk item bonus tetap panggil keluar_fifo() (stok berkurang) tapi
+      HPP=0 & harga_jual=0 tidak masuk omzet (semantik kasir_page.py lama, PRD §16 aturan 5).
+      Simpan is_bonus eksplisit ke transaksi_detail (dari task 1.2), bukan lagi diinferensi
+      dari harga_jual==0.
+    deliverables:
+      - "backend/kasir/checkout_service.*"
+    acceptance_criteria:
+      - "Item bonus: stok berkurang, tapi tidak menambah total/profit transaksi"
+      - "Jika salah satu item stok tidak cukup, TIDAK ADA perubahan stok sama sekali (rollback penuh)"
+      - "profit = total_non_bonus - total_hpp_fifo - total_tinta (PRD §16 aturan 4)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 3.2
+        --title "Service checkout atomic"
+        --desc "Gabungkan validasi fail-fast + semantik bonus tetap potong stok, dalam 1 DB transaction"
+        --files backend/kasir/checkout_service.py --status done
+
+  - id: "3.3"
+    title: "Endpoint checkout + kode transaksi TRX-YYYYMMDD-XXXXXXXX"
+    description: >
+      POST /kasir/checkout memanggil checkout_service, generate kode transaksi format
+      TRX-YYYYMMDD-XXXXXXXX. PERBAIKI bug §15 poin 13: response sukses HARUS menampilkan
+      kode transaksi asli (bukan ID numerik) agar konsisten dengan struk.
+    deliverables:
+      - "backend/kasir/checkout_endpoint.*"
+    acceptance_criteria:
+      - "Response sukses mengandung field kode == format TRX-YYYYMMDD-XXXXXXXX yang sama persis dengan yang tersimpan di DB"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 3.3
+        --title "Endpoint checkout + fix kode transaksi di response"
+        --desc "Response sukses pakai kode TRX asli, bukan ID numerik (fix bug PRD §15.13)"
+        --files backend/kasir/checkout_endpoint.py --status done
+
+  - id: "3.4"
+    title: "Dialog tambah ke keranjang: harga, diskon (Rp/%), tinta, bonus"
+    description: >
+      Frontend: form tambah item ke keranjang dengan field harga jual, diskon (mode Rp/%,
+      dikonversi ke Rp sebelum dikirim ke backend sesuai PRD §16 aturan 6), harga tinta, qty,
+      warna, dan checkbox bonus gratis yang mengunci field harga/diskon/tinta ke 0. Live
+      preview subtotal. Item non-bonus dengan kode+warna sama otomatis digabung qty; item
+      bonus tidak pernah digabung.
+    deliverables:
+      - "frontend/kasir/AddToCartDialog.*"
+    acceptance_criteria:
+      - "Centang bonus -> field harga/diskon/tinta terkunci ke 0, tombol submit berubah label"
+      - "Dua item non-bonus kode+warna sama -> qty digabung; item bonus selalu baris baru"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 3.4
+        --title "Dialog tambah ke keranjang"
+        --desc "Form harga/diskon/tinta/bonus + live preview + auto-merge non-bonus"
+        --files frontend/kasir/AddToCartDialog.tsx --status done
+
+  - id: "3.5"
+    title: "Halaman kasir: daftar produk + keranjang + pilih pelanggan"
+    description: >
+      Layout kiri (daftar produk, search) - kanan (keranjang: qty editable, harga editable,
+      baris bonus diberi styling hijau + label 🎁 BONUS/GRATIS). Tombol pilih pelanggan
+      (default Umum), kosongkan keranjang, refresh produk.
+    deliverables:
+      - "frontend/kasir/KasirPage.*"
+    acceptance_criteria:
+      - "Baris bonus tampil visual berbeda (styling + label) dari baris normal"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 3.5
+        --title "Halaman kasir utama"
+        --desc "Layout produk + keranjang + pilih pelanggan, styling khusus baris bonus"
+        --files frontend/kasir/KasirPage.tsx --status done
+
+  - id: "3.6"
+    title: "Dialog pembayaran + kalkulasi kembalian real-time"
+    description: >
+      Tabel ringkasan item read-only, input uang bayar, 4 tombol nominal cepat (exact +
+      pembulatan ke atas dari kelipatan 5rb/10rb/50rb/100rb, ambil 4 nilai unik), kalkulasi
+      kembalian real-time, tombol konfirmasi hanya aktif jika bayar >= total.
+    deliverables:
+      - "frontend/kasir/PembayaranDialog.*"
+    acceptance_criteria:
+      - "Tombol konfirmasi disabled jika bayar < total, enabled + kembalian benar jika cukup"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 3.6
+        --title "Dialog pembayaran"
+        --desc "Kalkulasi kembalian real-time + tombol nominal cepat"
+        --files frontend/kasir/PembayaranDialog.tsx --status done
+
+  - id: "3.7"
+    title: "Struk transaksi: cetak (window.print) + copy format WhatsApp"
+    description: >
+      Generate struk monospace mirip kertas kasir (header toko, item, diskon per item, info
+      tinta+warna, total). Tombol cetak pakai window.print() atau generate PDF server-side;
+      tombol copy ke WA dengan format *bold*/_italic_ ke clipboard.
+    deliverables:
+      - "frontend/kasir/StrukDialog.*"
+    acceptance_criteria:
+      - "Format struk mencantumkan semua elemen: header toko, item, diskon, tinta, total"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 3.7
+        --title "Struk transaksi: cetak + copy WA"
+        --desc "Render struk monospace, window.print + copy clipboard format WA"
+        --files frontend/kasir/StrukDialog.tsx --status done
+
+  - id: "3.8"
+    title: "Test end-to-end modul kasir"
+    description: >
+      Tulis test otomatis (unit + integration) untuk checkout_service: skenario stok cukup,
+      stok tidak cukup (rollback penuh), item bonus (stok berkurang, omzet tidak bertambah),
+      kombinasi diskon Rp & persen, multi-item FIFO lintas batch.
+    deliverables:
+      - "backend/kasir/tests/test_checkout_service.*"
+    acceptance_criteria:
+      - "Semua skenario di atas punya test case dan lulus"
+    commands:
+      - "# jalankan test suite"
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 3.8
+        --title "Test end-to-end modul kasir"
+        --desc "Test checkout atomic: stok cukup/tidak cukup, bonus, diskon, FIFO lintas batch"
+        --files backend/kasir/tests/test_checkout_service.py --status done

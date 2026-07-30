@@ -1,0 +1,104 @@
+meta:
+  project: "kasir-POS — Migrasi Aplikasi Kasir Desktop (PyQt5) ke Web"
+  source_prd: "docs/PRD.md"
+  source_arsitektur: "docs/Arsitektur.md"
+  generated_at: "2026-07-30"
+  numbering: "Task = angka bulat (0, 1, 2, ...). Subtask = task.urutan (0.1, 0.2, 1.1, 1.2, ...). Konsisten di semua file."
+  file_layout: >
+    Plan dipecah per task ke file terpisah supaya ringan dibaca/di-diff.
+    00_index.yaml = file ini (overview + konvensi global).
+    NN_task-<id>-<slug>.yaml = detail 1 task beserta seluruh subtasknya.
+    Urutan file memakai prefix 2-digit (01, 02, ...) SAMA dengan urutan pengerjaan yang disarankan,
+    tapi eksekusi tetap mengikuti field `depends_on` di tiap task, bukan sekadar nomor file.
+
+tracking_files:
+  status_md: "implementasi_plan/status.md"
+  patchlog_md: "implementasi_plan/patchlog.md"
+  bundles_dir: "implementasi_plan/bundles"
+  helper_script: "implementasi_plan/scripts/finish_subtask.py"
+  templates_dir: "implementasi_plan/templates"
+
+workflow_per_subtask:
+  description: >
+    Wajib diikuti untuk SETIAP subtask kecil (task.subtask), tanpa kecuali, supaya
+    status.md & patchlog.md selalu akurat dan tiap progres bisa di-bundle ulang.
+  steps:
+    - step: 1
+      name: tandai_mulai
+      action: "Update status subtask jadi in_progress SEBELUM mulai coding (opsional tapi disarankan untuk kerja >1 sesi)."
+      command: >
+        python implementasi_plan/scripts/finish_subtask.py --task <TASK_ID> --title "<JUDUL_SUBTASK>"
+        --status in_progress
+    - step: 2
+      name: implementasi
+      action: "Kerjakan perubahan kode/dokumen sesuai `description` dan `deliverables` pada subtask terkait di file task-nya."
+    - step: 3
+      name: tandai_selesai_dan_bundle
+      action: >
+        Setelah subtask selesai & sudah dites (lihat `acceptance_criteria`), jalankan SATU perintah ini.
+        Script otomatis: (a) update baris di status.md, (b) prepend entry baru ke patchlog.md
+        dengan ID PATCH-NNNN berurutan, (c) zip semua file yang berubah + snapshot status/patchlog
+        ke implementasi_plan/bundles/<TASK_ID>.zip.
+      command: >
+        python implementasi_plan/scripts/finish_subtask.py --task <TASK_ID>
+        --title "<JUDUL_SUBTASK>" --desc "<RINGKASAN_PERUBAHAN>"
+        --files <file1>,<file2>,... --status done
+      example: >
+        python implementasi_plan/scripts/finish_subtask.py --task 0.1
+        --title "Setup folder implementasi_plan" --desc "Membuat status.md, patchlog.md, plan per task"
+        --files implementasi_plan/status.md,implementasi_plan/patchlog.md --status done
+  naming_rule: "Bundle zip SELALU dinamai persis sesuai task_id subtask, mis. subtask 0.1 -> 0.1.zip, subtask 3.4 -> 3.4.zip."
+  rules:
+    - "Jangan lewati step 3 walau perubahan kecil — patchlog & status harus selalu sinkron dengan kondisi kode nyata."
+    - "Satu subtask = satu entry patchlog = satu file zip. Jangan gabung beberapa subtask jadi satu bundle."
+    - "Jika subtask ternyata perlu dipecah lebih kecil saat dikerjakan, tambahkan sub-id baru (mis. 3.4 pecah jadi 3.4a/3.4b) langsung di file task terkait, JANGAN mengubah nomor subtask lain yang sudah ada."
+
+tasks_overview:
+  - id: "0"
+    title: "Persiapan & Fondasi"
+    file: "01_task-0-persiapan.yaml"
+    depends_on: []
+  - id: "1"
+    title: "Skema Database"
+    file: "02_task-1-skema-database.yaml"
+    depends_on: ["0"]
+  - id: "2"
+    title: "Autentikasi & Sesi"
+    file: "03_task-2-autentikasi-sesi.yaml"
+    depends_on: ["1"]
+  - id: "3"
+    title: "Kasir / Point of Sale (checkout atomic)"
+    file: "04_task-3-kasir-pos.yaml"
+    depends_on: ["1", "2"]
+  - id: "4"
+    title: "Inventory & FIFO Stok"
+    file: "05_task-4-inventory-fifo.yaml"
+    depends_on: ["1", "2"]
+  - id: "5"
+    title: "Transaksi / Riwayat & Edit"
+    file: "06_task-5-transaksi-riwayat.yaml"
+    depends_on: ["3", "4"]
+  - id: "6"
+    title: "Pelanggan & Pengeluaran"
+    file: "07_task-6-pelanggan-pengeluaran.yaml"
+    depends_on: ["1", "2"]
+  - id: "7"
+    title: "Laporan & Dashboard"
+    file: "08_task-7-laporan-dashboard.yaml"
+    depends_on: ["3", "4", "5", "6"]
+  - id: "8"
+    title: "Intelligence / ML"
+    file: "09_task-8-ml-intelligence.yaml"
+    depends_on: ["7"]
+  - id: "9"
+    title: "User Management, Activity Log, Backup/Restore"
+    file: "10_task-9-user-log-backup.yaml"
+    depends_on: ["2"]
+
+open_questions_from_prd:
+  description: "Pertanyaan di PRD §18 yang harus dikonfirmasi ke pemilik produk sebelum task terkait dianggap benar-benar 'done'."
+  items:
+    - "Apakah kalkulator.py (kalkulator kebutuhan cat) perlu diporting? -> relevan untuk task 9 (scope decision)."
+    - "Apakah produk yang sudah pernah terjual tetap boleh dihapus (bug atau perilaku diterima)? -> relevan untuk task 4."
+    - "Apakah kode transaksi salah di popup sukses checkout perlu diperbaiki? -> relevan untuk task 3."
+    - "Apakah bonus_kasir/transaksi_bonus perlu diimplementasikan penuh atau dihapus dari skema? -> relevan untuk task 1 & 8."

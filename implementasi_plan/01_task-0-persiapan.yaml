@@ -1,0 +1,94 @@
+task:
+  id: "0"
+  title: "Persiapan & Fondasi"
+  goal: >
+    Menyiapkan seluruh infrastruktur perencanaan (status.md, patchlog.md, tooling bundling),
+    keputusan tech stack migrasi, dan struktur repo baru sebelum coding fitur dimulai.
+  depends_on: []
+  references: ["docs/PRD.md §2", "docs/PRD.md §18"]
+
+subtasks:
+  - id: "0.1"
+    title: "Setup folder implementasi_plan, status.md, patchlog.md"
+    description: >
+      Salin implementasi_plan/templates/status_template.md -> implementasi_plan/status.md dan
+      implementasi_plan/templates/patchlog_template.md -> implementasi_plan/patchlog.md.
+      Isi tanggal hari ini di frontmatter status.md. Pastikan implementasi_plan/scripts/finish_subtask.py
+      bisa dijalankan (python3 --version, tidak butuh dependency eksternal).
+    deliverables:
+      - implementasi_plan/status.md
+      - implementasi_plan/patchlog.md
+    acceptance_criteria:
+      - "status.md berisi tabel dengan header Task ID | Judul Subtask | Status | ..."
+      - "patchlog.md berisi frontmatter latest_patch_id & total_entries"
+      - "python3 implementasi_plan/scripts/finish_subtask.py --help berjalan tanpa error"
+    commands:
+      - "cp implementasi_plan/templates/status_template.md implementasi_plan/status.md"
+      - "cp implementasi_plan/templates/patchlog_template.md implementasi_plan/patchlog.md"
+      - "python3 implementasi_plan/scripts/finish_subtask.py --help"
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 0.1
+        --title "Setup folder implementasi_plan, status.md, patchlog.md"
+        --desc "Inisialisasi status.md dan patchlog.md dari template"
+        --files implementasi_plan/status.md,implementasi_plan/patchlog.md --status done
+
+  - id: "0.2"
+    title: "Keputusan tech stack migrasi (backend, frontend, DB)"
+    description: >
+      Tulis dokumen keputusan singkat (ADR) di implementasi_plan/decisions/0002-tech-stack.md:
+      pilih framework backend (mis. FastAPI/NestJS/Django), frontend (mis. React/Vue), dan RDBMS
+      pengganti SQLite (rekomendasi PRD §18: Postgres). Rujuk docs/PRD.md §2 (tech stack lama)
+      dan §17 (design tokens) supaya keputusan konsisten dengan kebutuhan UI dark-theme.
+    deliverables:
+      - implementasi_plan/decisions/0002-tech-stack.md
+    acceptance_criteria:
+      - "Dokumen ADR memuat: konteks, opsi dipertimbangkan, keputusan final, konsekuensi."
+    commands:
+      - "mkdir -p implementasi_plan/decisions"
+      - "# tulis implementasi_plan/decisions/0002-tech-stack.md"
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 0.2
+        --title "Keputusan tech stack migrasi"
+        --desc "ADR pemilihan backend/frontend/RDBMS untuk migrasi"
+        --files implementasi_plan/decisions/0002-tech-stack.md --status done
+
+  - id: "0.3"
+    title: "Scaffold repo baru & CI dasar"
+    description: >
+      Buat struktur project baru (backend/, frontend/, migrations/) sesuai tech stack dari 0.2.
+      Setup linter, formatter, dan CI pipeline minimal (lint + test on push) di
+      .github/workflows/ci.yml (atau setara).
+    deliverables:
+      - "backend/ (scaffold awal)"
+      - "frontend/ (scaffold awal)"
+      - ".github/workflows/ci.yml"
+    acceptance_criteria:
+      - "CI berjalan hijau untuk scaffold kosong (lint + test placeholder lulus)"
+    commands:
+      - "# scaffold project sesuai keputusan 0.2"
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 0.3
+        --title "Scaffold repo baru & CI dasar"
+        --desc "Struktur folder backend/frontend + pipeline CI lint/test minimal"
+        --files .github/workflows/ci.yml --status done
+
+  - id: "0.4"
+    title: "Setup environment lokal (docker-compose) & seed data dummy"
+    description: >
+      Buat docker-compose.yml (app + Postgres) agar tim bisa jalankan environment lokal dengan
+      satu perintah. Siapkan seed data dummy minimal (beberapa produk, user admin/kasir/gudang)
+      untuk mempercepat development task-task berikutnya.
+    deliverables:
+      - docker-compose.yml
+      - "seed data script (mis. backend/scripts/seed.py atau setara)"
+    acceptance_criteria:
+      - "docker compose up berhasil menyalakan DB + app kosong tanpa error"
+      - "Seed script berhasil membuat minimal 1 user tiap role + beberapa produk contoh"
+    commands:
+      - "docker compose up -d --build"
+      - "# jalankan seed script"
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 0.4
+        --title "Setup environment lokal & seed data dummy"
+        --desc "docker-compose + seed data awal untuk development"
+        --files docker-compose.yml --status done

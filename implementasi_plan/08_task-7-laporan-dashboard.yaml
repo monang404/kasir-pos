@@ -1,0 +1,130 @@
+task:
+  id: "7"
+  title: "Laporan & Dashboard"
+  goal: >
+    Pindahkan query agregasi SQL yang jadi acuan angka, ganti QPainter chart dengan library
+    chart web (Chart.js/Recharts/D3) tapi pertahankan definisi data & warna semantik yang sama
+    (docs/PRD.md §18 poin 7).
+  depends_on: ["3", "4", "5", "6"]
+  references: ["docs/PRD.md §7", "docs/PRD.md §13", "docs/PRD.md §17"]
+
+subtasks:
+  - id: "7.1"
+    title: "Endpoint dashboard: stat card & growth card"
+    description: >
+      GET /dashboard?bulan=... menghitung omzet, laba kotor, laba bersih, total pengeluaran
+      untuk periode terpilih; growth card (omzet/profit/transaksi) SELALU dibandingkan bulan
+      kalender sebelumnya (tidak ikut filter dropdown), null jika prev==0 (bukan infinity).
+    deliverables:
+      - "backend/dashboard/stats.*"
+    acceptance_criteria:
+      - "Growth % null saat bulan sebelumnya 0, bukan infinity/NaN"
+      - "Growth card tidak berubah walau dropdown filter periode diubah"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 7.1
+        --title "Endpoint dashboard stat & growth card"
+        --desc "Perhitungan omzet/laba + growth vs bulan lalu, null jika prev=0"
+        --files backend/dashboard/stats.py --status done
+
+  - id: "7.2"
+    title: "Endpoint chart bulanan, pie komposisi, mini bar 7 hari"
+    description: >
+      Data 12 bulan terakhir (omzet vs profit bersih), pie komposisi bulan ini (laba bersih/
+      HPP/tinta/pengeluaran, slice abu-abu jika semua nol), omzet 7 hari terakhir.
+    deliverables:
+      - "backend/dashboard/charts.*"
+    acceptance_criteria:
+      - "Semua nilai chart nol -> tampil sebagai state kosong yang jelas (bukan chart kosong tanpa keterangan)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 7.2
+        --title "Endpoint chart dashboard"
+        --desc "Data chart bulanan/pie/7-hari dengan warna semantik dipertahankan"
+        --files backend/dashboard/charts.py --status done
+
+  - id: "7.3"
+    title: "Halaman Dashboard frontend (Chart.js/Recharts)"
+    description: >
+      Render stat card, growth card (panah naik/turun/sama), grouped bar chart 12 bulan,
+      pie chart komposisi, mini bar 7 hari, panel transaksi terbaru & stok hampir habis
+      (threshold <20, merah <=5, amber 6-19), memakai warna semantik dari PRD §17.
+      Auto-refresh 60 detik.
+    deliverables:
+      - "frontend/dashboard/DashboardPage.*"
+    acceptance_criteria:
+      - "Warna panah growth: hijau naik, merah turun, abu sama — sesuai PRD §7"
+      - "Auto-refresh berjalan tiap 60 detik tanpa reload penuh halaman"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 7.3
+        --title "Halaman Dashboard frontend"
+        --desc "Chart.js/Recharts untuk semua visual dashboard + auto-refresh 60 detik"
+        --files frontend/dashboard/DashboardPage.tsx --status done
+
+  - id: "7.4"
+    title: "Endpoint laporan: Ringkasan, Transaksi, Produk"
+    description: >
+      Filter global (mode Pilih Bulan / Rentang Tanggal). Tab Ringkasan (KPI + ringkasan
+      naratif otomatis), Transaksi (tabel detail periode), Produk (terlaris/performa,
+      qty/omzet/profit per produk).
+    deliverables:
+      - "backend/laporan/ringkasan_transaksi_produk.*"
+    acceptance_criteria:
+      - "Kedua mode filter (bulan / rentang tanggal) menghasilkan data konsisten untuk periode yang sama"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 7.4
+        --title "Endpoint laporan ringkasan/transaksi/produk"
+        --desc "Filter bulan & rentang tanggal, ringkasan naratif otomatis"
+        --files backend/laporan/ringkasan_transaksi_produk.py --status done
+
+  - id: "7.5"
+    title: "Endpoint laporan: Pelanggan, Stok (real-time), Pengeluaran"
+    description: >
+      Tab Pelanggan (top spender), Stok (snapshot REAL-TIME, bukan per-periode — beri label
+      eksplisit di response/UI), Pengeluaran (breakdown per kategori periode terpilih).
+    deliverables:
+      - "backend/laporan/pelanggan_stok_pengeluaran.*"
+    acceptance_criteria:
+      - "Tab Stok tidak berubah walau filter periode laporan diganti (selalu snapshot saat ini)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 7.5
+        --title "Endpoint laporan pelanggan/stok/pengeluaran"
+        --desc "Top spender, snapshot stok real-time, breakdown pengeluaran"
+        --files backend/laporan/pelanggan_stok_pengeluaran.py --status done
+
+  - id: "7.6"
+    title: "Ekspor laporan ke .xlsx dengan styling dark-theme"
+    description: >
+      Tombol ekspor per tab menghasilkan file .xlsx dengan styling manual mereplikasi tema
+      gelap (judul merge-cell bold navy, header kolom bold, alternating row, font Segoe UI
+      pucat) sesuai PRD §13.
+    deliverables:
+      - "backend/laporan/export_xlsx.*"
+    acceptance_criteria:
+      - "File .xlsx yang dihasilkan terbuka valid di Excel/LibreOffice dengan styling sesuai token warna PRD §17"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 7.6
+        --title "Ekspor laporan xlsx dark-theme"
+        --desc "Styling manual mereplikasi tema gelap aplikasi ke file Excel"
+        --files backend/laporan/export_xlsx.py --status done
+
+  - id: "7.7"
+    title: "Halaman Laporan frontend: 6 tab + filter global"
+    description: >
+      Orkestrasi 6 tab (Ringkasan, Transaksi, Produk, Pelanggan, Stok, Pengeluaran), filter
+      global mode bulan/rentang, tombol "Tampilkan Laporan" reload semua tab sekaligus,
+      tombol ekspor per tab.
+    deliverables:
+      - "frontend/laporan/LaporanPage.*"
+    acceptance_criteria:
+      - "Ganti filter + klik Tampilkan Laporan me-reload seluruh 6 tab secara konsisten"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 7.7
+        --title "Halaman Laporan frontend 6 tab"
+        --desc "Filter global + orkestrasi reload semua tab + tombol ekspor"
+        --files frontend/laporan/LaporanPage.tsx --status done

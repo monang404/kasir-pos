@@ -1,0 +1,102 @@
+task:
+  id: "2"
+  title: "Autentikasi & Sesi"
+  goal: >
+    Replikasi login, role admin/kasir/gudang, lockout, dan session timeout sesuai docs/PRD.md §4 & §6,
+    dengan validasi role di level API (bukan hanya UI) sesuai rekomendasi §15 poin 16.
+  depends_on: ["1"]
+  references: ["docs/PRD.md §4", "docs/PRD.md §6", "docs/PRD.md §15 poin 16"]
+
+subtasks:
+  - id: "2.1"
+    title: "Endpoint login + password hashing"
+    description: >
+      Implementasikan endpoint POST /auth/login: verifikasi username (case-insensitive) +
+      password. Gunakan hashing setara kekuatan PBKDF2-HMAC-SHA256 310k iterasi (atau ganti
+      ke bcrypt/argon2 dengan parameter setara, sesuai catatan PRD §2). Update last_login saat
+      sukses.
+    deliverables:
+      - "backend/auth/login.* (endpoint + service)"
+    acceptance_criteria:
+      - "Login gagal untuk password salah, sukses untuk kombinasi benar"
+      - "username case-insensitive match (mis. Admin == admin)"
+    commands:
+      - "# test: curl -X POST /auth/login ..."
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 2.1
+        --title "Endpoint login + password hashing"
+        --desc "POST /auth/login dengan hashing setara PBKDF2 310k, update last_login"
+        --files backend/auth/login.py --status done
+
+  - id: "2.2"
+    title: "Lockout 5x gagal / 5 menit"
+    description: >
+      Implementasikan counter percobaan gagal per user, lockout otomatis 300 detik setelah
+      5x gagal berturut-turut, reset counter saat login sukses. Response API harus memberi
+      info sisa percobaan atau sisa waktu lockout (detik) sesuai perilaku dialog lama.
+    deliverables:
+      - "backend/auth/lockout.*"
+    acceptance_criteria:
+      - "5x gagal berturut-turut -> percobaan ke-6 ditolak dengan pesan lockout + sisa detik"
+      - "Setelah 300 detik, percobaan login diterima kembali (counter reset)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 2.2
+        --title "Lockout 5x gagal / 5 menit"
+        --desc "Counter percobaan gagal per user + auto-lockout 300 detik"
+        --files backend/auth/lockout.py --status done
+
+  - id: "2.3"
+    title: "Session/JWT + idle timeout 60 menit"
+    description: >
+      Ganti singleton session lama dengan JWT (atau server-side session) yang punya idle
+      timeout 60 menit (dikonfigurasi via env SESSION_TIMEOUT, 0 = nonaktif, sesuai PRD §4).
+    deliverables:
+      - "backend/auth/session.*"
+    acceptance_criteria:
+      - "Request dengan token idle >60 menit ditolak (401) dan wajib login ulang"
+      - "SESSION_TIMEOUT=0 menonaktifkan idle timeout (untuk testing/dev)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 2.3
+        --title "Session/JWT + idle timeout 60 menit"
+        --desc "Idle timeout dikonfigurasi via env SESSION_TIMEOUT"
+        --files backend/auth/session.py --status done
+
+  - id: "2.4"
+    title: "Middleware otorisasi per-role di setiap endpoint API"
+    description: >
+      Implementasikan middleware/decorator yang memvalidasi allowed_pages per role
+      (admin/kasir/gudang, matriks di PRD §4) di level SERVER untuk SETIAP endpoint —
+      bukan cuma menyembunyikan tombol di UI (perbaikan celah keamanan §15 poin 16).
+      Definisikan matriks akses di SATU tempat (mis. backend/auth/access_matrix.py) agar
+      tidak drift antara backend dan menu sidebar frontend (aturan §16 poin 11).
+    deliverables:
+      - "backend/auth/access_matrix.py"
+      - "backend/auth/require_role middleware"
+    acceptance_criteria:
+      - "Request kasir ke endpoint khusus admin (mis. /users) ditolak 403"
+      - "Matriks akses backend & daftar menu frontend bersumber dari definisi yang sama"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 2.4
+        --title "Middleware otorisasi per-role di setiap endpoint"
+        --desc "Validasi role di server untuk semua endpoint, single source access matrix"
+        --files backend/auth/access_matrix.py,backend/auth/require_role.py --status done
+
+  - id: "2.5"
+    title: "Halaman login frontend"
+    description: >
+      Buat halaman login sesuai elemen UI PRD §6 (username, password toggle show/hide,
+      pesan error + sisa percobaan/lockout, tombol Masuk). Terapkan design tokens dark-theme
+      dari PRD §17.
+    deliverables:
+      - "frontend/pages/login.*"
+    acceptance_criteria:
+      - "Pesan error menampilkan sisa percobaan atau sisa waktu lockout sesuai response API"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 2.5
+        --title "Halaman login frontend"
+        --desc "UI login dark-theme sesuai token PRD §17, tampilkan sisa percobaan/lockout"
+        --files frontend/pages/login.tsx --status done

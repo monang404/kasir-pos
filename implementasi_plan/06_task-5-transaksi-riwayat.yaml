@@ -1,0 +1,117 @@
+task:
+  id: "5"
+  title: "Transaksi / Riwayat & Edit"
+  goal: >
+    Replikasi modul riwayat transaksi termasuk efek samping retur stok otomatis saat
+    edit/hapus (docs/PRD.md §11), yang bergantung pada modul kasir (3) & inventory (4).
+  depends_on: ["3", "4"]
+  references: ["docs/PRD.md §11", "docs/PRD.md §16 aturan 3, 7"]
+
+subtasks:
+  - id: "5.1"
+    title: "Endpoint list & filter riwayat transaksi"
+    description: >
+      GET /transaksi dengan filter bulan, pelanggan (dibangun dinamis dari data), search
+      (kode/nama pelanggan/tanggal). 4 stat card: total transaksi (fix, seluruh data),
+      total omzet & profit (ikut filter), ditampilkan.
+    deliverables:
+      - "backend/transaksi/list_transaksi.*"
+    acceptance_criteria:
+      - "Stat 'Total Transaksi' tidak berubah walau filter bulan diubah; omzet/profit ikut filter"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 5.1
+        --title "Endpoint list & filter riwayat transaksi"
+        --desc "Filter bulan/pelanggan/search + stat card sesuai semantik lama"
+        --files backend/transaksi/list_transaksi.py --status done
+
+  - id: "5.2"
+    title: "Hapus transaksi -> retur stok otomatis (batch baru)"
+    description: >
+      Endpoint delete transaksi: untuk setiap detail item, buat batch retur baru
+      (supplier "Retur Hapus Transaksi {kode}", harga_beli = HPP tersimpan di detail —
+      BUKAN harga_beli terbaru produk, sesuai PRD §16 aturan 3), baru hapus detail lalu
+      header transaksi, semua dalam SATU transaction.
+    deliverables:
+      - "backend/transaksi/delete_transaksi.*"
+    acceptance_criteria:
+      - "Setelah hapus, stok produk bertambah persis sebesar qty tiap item yang dihapus"
+      - "HPP batch retur = HPP tersimpan di transaksi_detail, bukan harga_beli produk saat ini"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 5.2
+        --title "Hapus transaksi + retur stok otomatis"
+        --desc "Batch retur baru dengan HPP dari detail asal, atomic dengan hapus header"
+        --files backend/transaksi/delete_transaksi.py --status done
+
+  - id: "5.3"
+    title: "Edit item transaksi (qty naik/turun) + recalculate total/profit"
+    description: >
+      Endpoint edit item: qty naik -> potong FIFO tambahan; qty turun -> retur selisih
+      sebagai batch baru ("Retur Edit Transaksi #{id}"). Setelah update, panggil
+      recalculate_total_profit() dari SEMUA detail terkini (termasuk total tinta).
+    deliverables:
+      - "backend/transaksi/edit_item.*"
+    acceptance_criteria:
+      - "Qty naik 5->8 memotong FIFO tambahan 3 unit; qty turun 8->5 meretur 3 unit sebagai batch baru"
+      - "total & profit header ter-update tepat sesuai seluruh detail setelah edit"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 5.3
+        --title "Edit item transaksi + recalculate"
+        --desc "Handle qty naik/turun dengan FIFO/retur, recalculate total & profit header"
+        --files backend/transaksi/edit_item.py --status done
+
+  - id: "5.4"
+    title: "Ganti pelanggan pada transaksi existing"
+    description: >
+      Endpoint update pelanggan_id pada transaksi tanpa memicu recalculation lain
+      (sesuai perilaku lama). Pertimbangkan snapshot nama pelanggan (pelanggan_nama) di
+      transaksi_detail/header agar histori tidak berubah jika data pelanggan diedit
+      kemudian, konsisten dengan pola kasir_nama (rekomendasi PRD §16 aturan 7).
+    deliverables:
+      - "backend/transaksi/ganti_pelanggan.*"
+    acceptance_criteria:
+      - "Keputusan snapshot nama pelanggan didokumentasikan dan konsisten diterapkan"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 5.4
+        --title "Ganti pelanggan pada transaksi"
+        --desc "Update pelanggan_id + keputusan snapshot nama pelanggan"
+        --files backend/transaksi/ganti_pelanggan.py --status done
+
+  - id: "5.5"
+    title: "Halaman Transaksi frontend + dialog detail/edit"
+    description: >
+      Tabel riwayat dengan menu aksi (cetak struk, detail/edit, hapus dengan konfirmasi
+      eksplisit "stok akan dikembalikan"). Dialog detail menampilkan info transaksi, tabel
+      item dengan aksi edit/hapus per item.
+    deliverables:
+      - "frontend/transaksi/TransaksiPage.*"
+      - "frontend/transaksi/DetailTransaksiDialog.*"
+    acceptance_criteria:
+      - "Konfirmasi hapus transaksi & hapus item eksplisit menyebut stok dikembalikan"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 5.5
+        --title "Halaman Transaksi + dialog detail/edit"
+        --desc "List, filter, dan dialog detail/edit item dengan konfirmasi retur stok"
+        --files frontend/transaksi/TransaksiPage.tsx,frontend/transaksi/DetailTransaksiDialog.tsx
+        --status done
+
+  - id: "5.6"
+    title: "Test end-to-end retur stok (hapus & edit)"
+    description: >
+      Test integrasi: hapus transaksi mengembalikan stok dengan HPP benar; edit qty naik/
+      turun memotong/meretur FIFO dengan benar; recalculate total/profit akurat setelah
+      berbagai kombinasi edit.
+    deliverables:
+      - "backend/transaksi/tests/test_retur_stok.*"
+    acceptance_criteria:
+      - "Semua skenario retur & recalculate punya test dan lulus"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 5.6
+        --title "Test end-to-end retur stok"
+        --desc "Test hapus/edit transaksi -> retur stok & recalculate akurat"
+        --files backend/transaksi/tests/test_retur_stok.py --status done

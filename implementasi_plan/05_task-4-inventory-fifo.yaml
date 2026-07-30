@@ -1,0 +1,155 @@
+task:
+  id: "4"
+  title: "Inventory & FIFO Stok"
+  goal: >
+    Replikasi modul inventory (CRUD produk, batch, adjustment) dengan logika FIFO presisi
+    100% karena berdampak langsung ke profit yang dilaporkan (docs/PRD.md §18 poin 4).
+  depends_on: ["1", "2"]
+  references: ["docs/PRD.md §8", "docs/PRD.md §15 poin 2", "docs/PRD.md §16 aturan 1-2"]
+
+subtasks:
+  - id: "4.1"
+    title: "Service FIFO: keluar_fifo() & tambah_stok()"
+    description: >
+      Implementasikan keluar_fifo(produk_id, qty): ambil dari batch tanggal_masuk paling lama
+      dulu, hitung HPP gabungan, hapus baris batch yang qty_sisa mencapai 0. tambah_stok()
+      SELALU membuat batch baru (tidak pernah update batch existing), sesuai PRD §16 aturan 1-2.
+    deliverables:
+      - "backend/inventory/fifo_service.*"
+    acceptance_criteria:
+      - "Keluar 1 qty melewati 2 batch (batch pertama habis) menghasilkan HPP gabungan yang benar"
+      - "Batch dengan qty_sisa=0 otomatis terhapus dari tabel, bukan disimpan sebagai 0"
+      - "tambah_stok() tidak pernah mengubah baris batch lama"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 4.1
+        --title "Service FIFO keluar_fifo & tambah_stok"
+        --desc "Implementasi FIFO presisi + auto-hapus batch habis + selalu batch baru saat tambah"
+        --files backend/inventory/fifo_service.py --status done
+
+  - id: "4.2"
+    title: "CRUD produk (create/edit) dengan validasi harga & kode unik"
+    description: >
+      Endpoint create/update produk: kode dipaksa UPPERCASE, validasi kode unik (kecuali diri
+      sendiri saat edit), harga_jual > 0, harga_jual >= harga_beli (block dengan warning jika
+      lebih kecil, sesuai PRD §8).
+    deliverables:
+      - "backend/inventory/produk_crud.*"
+    acceptance_criteria:
+      - "Create dengan kode sudah ada -> ditolak; edit produk itu sendiri dengan kode sama -> diterima"
+      - "harga_jual < harga_beli -> ditolak dengan pesan jelas"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 4.2
+        --title "CRUD produk dengan validasi"
+        --desc "Kode UPPERCASE unik, validasi harga jual >= harga beli"
+        --files backend/inventory/produk_crud.py --status done
+
+  - id: "4.3"
+    title: "Keputusan & implementasi hapus produk (konsisten dengan pelanggan)"
+    description: >
+      Berdasarkan jawaban open question (§15 poin 2), implementasikan salah satu: (a) blokir
+      hapus produk yang sudah pernah terjual (konsisten dengan PelangganService, guard di level
+      service DAN endpoint, tidak bisa dilewati dari UI manapun), atau (b) izinkan hapus dengan
+      penanganan eksplisit untuk transaksi_detail.produk_id yang jadi orphan (mis. soft-delete
+      via is_active, bukan hard delete). Dokumentasikan keputusan.
+    deliverables:
+      - "backend/inventory/delete_produk.*"
+      - "implementasi_plan/decisions/0043-hapus-produk.md"
+    acceptance_criteria:
+      - "Perilaku delete konsisten antara service layer dan endpoint (tidak ada jalur pintas SQL raw seperti sistem lama)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 4.3
+        --title "Keputusan & implementasi hapus produk"
+        --desc "Konsistensi guard hapus produk vs pelanggan, didokumentasikan"
+        --files backend/inventory/delete_produk.py,implementasi_plan/decisions/0043-hapus-produk.md
+        --status done
+
+  - id: "4.4"
+    title: "Stock Adjustment (tambah/kurangi) dengan alasan wajib"
+    description: >
+      Endpoint adjustment: tambah (+) membuat batch baru dengan supplier label
+      "Penyesuaian (+): {alasan}"; kurangi (-) memakai keluar_fifo() dengan validasi stok
+      baru tidak boleh negatif. Alasan wajib diisi (free text).
+    deliverables:
+      - "backend/inventory/stock_adjustment.*"
+    acceptance_criteria:
+      - "Kurangi melebihi stok tersedia -> ditolak sebelum eksekusi apapun"
+      - "Adjustment tanpa alasan -> ditolak validasi"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 4.4
+        --title "Stock adjustment tambah/kurangi"
+        --desc "Validasi alasan wajib + stok tidak boleh negatif"
+        --files backend/inventory/stock_adjustment.py --status done
+
+  - id: "4.5"
+    title: "Import Excel produk massal"
+    description: >
+      Endpoint import file Excel: baca sheet 'produk' (fallback sheet pertama), kolom wajib
+      kode/nama/harga_beli/harga_jual (case-insensitive, trim). Skip baris kode/nama invalid
+      atau kode duplikat; catat error baris harga_jual<=0. Return ringkasan berhasil/dilewati/
+      error (maks 10 baris error ditampilkan).
+    deliverables:
+      - "backend/inventory/import_excel.*"
+    acceptance_criteria:
+      - "File dengan campuran baris valid/invalid/duplikat menghasilkan ringkasan angka yang benar"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 4.5
+        --title "Import Excel produk massal"
+        --desc "Parsing sheet produk + validasi + ringkasan berhasil/dilewati/error"
+        --files backend/inventory/import_excel.py --status done
+
+  - id: "4.6"
+    title: "Halaman Inventory frontend: filter, sort, search, stat cards"
+    description: >
+      Tabel produk dengan kolom sesuai PRD §8, dropdown filter stok (Semua/Normal>=5/Rendah
+      <5/Habis=0), dropdown sort 7 opsi, search real-time, 4 stat card dihitung dari SELURUH
+      data (tidak terpengaruh filter tampil) kecuali kartu "Ditampilkan".
+    deliverables:
+      - "frontend/inventory/InventoryPage.*"
+    acceptance_criteria:
+      - "Stat card TOTAL/HABIS/RENDAH tetap sama walau filter tabel diubah; hanya DITAMPILKAN yang berubah"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 4.6
+        --title "Halaman Inventory frontend"
+        --desc "Filter/sort/search + stat card independen dari filter tampilan"
+        --files frontend/inventory/InventoryPage.tsx --status done
+
+  - id: "4.7"
+    title: "Dialog batch stok per produk"
+    description: >
+      Tampilkan riwayat batch 1 produk (urut terbaru), info total batch + total stok sisa,
+      tombol tambah batch baru, hapus batch (konfirmasi ekstra jika qty_sisa>0, dan pastikan
+      penghapusan batch memakai jalur yang mengoreksi implikasi stok dengan benar — perbaikan
+      dari perilaku hard-delete tanpa jejak di sistem lama, §15 poin 2 semangat serupa).
+    deliverables:
+      - "frontend/inventory/BatchProdukDialog.*"
+      - "backend/inventory/batch_crud.*"
+    acceptance_criteria:
+      - "Hapus batch dengan qty_sisa>0 memicu konfirmasi tambahan dan tercatat di activity_log"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 4.7
+        --title "Dialog & endpoint batch stok per produk"
+        --desc "Riwayat batch, tambah/hapus batch dengan audit trail"
+        --files frontend/inventory/BatchProdukDialog.tsx,backend/inventory/batch_crud.py --status done
+
+  - id: "4.8"
+    title: "Test FIFO & inventory end-to-end"
+    description: >
+      Test khusus akurasi FIFO lintas banyak batch, adjustment, import Excel (skenario valid/
+      invalid/duplikat), dan hapus produk sesuai keputusan 4.3.
+    deliverables:
+      - "backend/inventory/tests/test_fifo.*"
+    acceptance_criteria:
+      - "Semua skenario FIFO kritikal (yang menentukan profit) punya test dan lulus"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 4.8
+        --title "Test FIFO & inventory end-to-end"
+        --desc "Test akurasi FIFO, adjustment, import excel, hapus produk"
+        --files backend/inventory/tests/test_fifo.py --status done

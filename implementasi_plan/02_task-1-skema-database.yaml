@@ -1,0 +1,111 @@
+task:
+  id: "1"
+  title: "Skema Database"
+  goal: >
+    Memindahkan skema database (SQLite -> RDBMS baru) sesuai kontrak data di docs/PRD.md §3,
+    sambil secara sadar memutuskan nasib kolom/tabel mati (§15 poin 4) dan duplikasi kolom waktu
+    (§15 poin 5).
+  depends_on: ["0"]
+  references: ["docs/PRD.md §3", "docs/PRD.md §15 poin 4-5, 14, 17", "docs/PRD.md §16 aturan 6, 9, 10"]
+
+subtasks:
+  - id: "1.1"
+    title: "Migrasi tabel inti: produk, produk_batch, pelanggan"
+    description: >
+      Buat migration file untuk tabel produk (kode UNIQUE UPPERCASE, harga_beli/harga_jual),
+      produk_batch (basis FIFO: qty_masuk, qty_sisa, harga_beli per batch, tanggal_masuk),
+      dan pelanggan. Putuskan eksplisit: pertahankan atau buang kolom is_bonus_eligible &
+      is_active (dead columns, §15 poin 4) — dokumentasikan keputusan di migration comment.
+    deliverables:
+      - "migrations/0001_produk_batch_pelanggan.sql (atau setara ORM migration)"
+    acceptance_criteria:
+      - "Constraint UNIQUE pada produk.kode ada di level DB (bukan hanya validasi app)"
+      - "FK produk_batch.produk_id ON DELETE CASCADE sesuai PRD §3.2"
+      - "Keputusan dead columns didokumentasikan (dipertahankan / dihapus) beserta alasan"
+    commands:
+      - "# tulis & jalankan migration"
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 1.1
+        --title "Migrasi tabel produk, produk_batch, pelanggan"
+        --desc "Skema inti inventory + FIFO batch + pelanggan, keputusan dead columns didokumentasikan"
+        --files migrations/0001_produk_batch_pelanggan.sql --status done
+
+  - id: "1.2"
+    title: "Migrasi tabel transaksi & transaksi_detail"
+    description: >
+      Buat tabel transaksi (kode unik TRX-YYYYMMDD-XXXXXXXX, total, profit, pelanggan_id,
+      kasir_id, metode_bayar, kasir_nama snapshot) dan transaksi_detail (qty, harga_jual,
+      harga_beli=HPP FIFO aktual, warna, harga_tinta, diskon, harga_asli). Putuskan: satukan
+      transaksi.tanggal & created_at (§15 poin 5) jadi satu kolom saja di skema baru.
+      Tambahkan kolom is_bonus BOOLEAN eksplisit di transaksi_detail (rekomendasi §15 poin 6)
+      agar status bonus tidak lagi disimpulkan heuristik dari harga_jual==0.
+    deliverables:
+      - "migrations/0002_transaksi.sql"
+    acceptance_criteria:
+      - "Kolom is_bonus eksplisit ada dan default false"
+      - "Hanya satu kolom timestamp transaksi (tidak duplikat tanggal/created_at)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 1.2
+        --title "Migrasi tabel transaksi & transaksi_detail"
+        --desc "Tambah kolom is_bonus eksplisit, satukan kolom timestamp"
+        --files migrations/0002_transaksi.sql --status done
+
+  - id: "1.3"
+    title: "Migrasi tabel pengeluaran, users, activity_log"
+    description: >
+      Buat tabel pengeluaran (dengan kategori — satukan daftar kategori dari UI lama sesuai
+      rekomendasi §15 poin 3, tambahkan CHECK constraint agar tidak lagi bebas teks per §15
+      poin 17), users (role admin/kasir/gudang, password hash, last_login), dan activity_log
+      (audit trail: aksi, modul, target, detail JSON before/after).
+    deliverables:
+      - "migrations/0003_pengeluaran_users_log.sql"
+    acceptance_criteria:
+      - "CHECK constraint kategori pengeluaran memakai daftar tunggal (bukan 2 daftar berbeda seperti sistem lama)"
+      - "users.role dibatasi CHECK IN ('admin','kasir','gudang')"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 1.3
+        --title "Migrasi tabel pengeluaran, users, activity_log"
+        --desc "Kategori pengeluaran disatukan + CHECK constraint, skema users & audit trail"
+        --files migrations/0003_pengeluaran_users_log.sql --status done
+
+  - id: "1.4"
+    title: "Keputusan & migrasi bonus_kasir / transaksi_bonus"
+    description: >
+      Berdasarkan jawaban open question di 00_index.yaml (bonus_kasir & transaksi_bonus §15
+      poin 4), implementasikan salah satu: (a) buat tabel penuh + service penulisannya jika
+      fitur approval bonus kasir memang mau dilanjutkan, atau (b) hapus dari skema baru jika
+      diputuskan tidak dipakai. Dokumentasikan keputusan final.
+    deliverables:
+      - "migrations/0004_bonus_kasir_decision.sql"
+      - "implementasi_plan/decisions/0004-bonus-kasir.md"
+    acceptance_criteria:
+      - "Keputusan (implementasi penuh / dihapus) terdokumentasi dengan alasan bisnis"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 1.4
+        --title "Keputusan & migrasi bonus_kasir/transaksi_bonus"
+        --desc "Finalisasi apakah bonus_kasir diimplementasikan penuh atau dihapus dari skema"
+        --files migrations/0004_bonus_kasir_decision.sql,implementasi_plan/decisions/0004-bonus-kasir.md
+        --status done
+
+  - id: "1.5"
+    title: "Script migrasi data lama (toko.db SQLite -> RDBMS baru)"
+    description: >
+      Buat script one-off yang membaca toko.db (SQLite) dan memindahkan seluruh data existing
+      ke skema baru, termasuk transformasi kolom yang berubah (mis. is_bonus hasil inferensi
+      dari harga_jual==0 untuk data lama, penyatuan tanggal/created_at, kategori pengeluaran
+      lama dipetakan ke daftar tunggal baru).
+    deliverables:
+      - "scripts/migrate_legacy_sqlite.py"
+    acceptance_criteria:
+      - "Dry-run mode tersedia (tidak menulis, hanya laporan) sebelum eksekusi asli"
+      - "Jumlah baris per tabel sebelum & sesudah migrasi cocok (tidak ada data hilang)"
+    commands:
+      - "python3 scripts/migrate_legacy_sqlite.py --dry-run"
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 1.5
+        --title "Script migrasi data lama SQLite -> RDBMS baru"
+        --desc "One-off migration script + dry-run mode + validasi jumlah baris"
+        --files scripts/migrate_legacy_sqlite.py --status done

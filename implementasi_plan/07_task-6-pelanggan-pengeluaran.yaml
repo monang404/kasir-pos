@@ -1,0 +1,92 @@
+task:
+  id: "6"
+  title: "Pelanggan & Pengeluaran"
+  goal: >
+    Modul CRUD sederhana, risiko rendah (docs/PRD.md §18 poin 6), tapi tetap perlu
+    konsistensi aturan hapus & kategori yang sudah disatukan di task 1.
+  depends_on: ["1", "2"]
+  references: ["docs/PRD.md §10", "docs/PRD.md §12", "docs/PRD.md §15 poin 2-3"]
+
+subtasks:
+  - id: "6.1"
+    title: "CRUD pelanggan + validasi no HP unik"
+    description: >
+      Endpoint create/update pelanggan: nama wajib, no HP wajib dari sisi form (opsional di
+      level DB, dicek duplikat WHERE no_hp != '' sesuai PRD §10).
+    deliverables:
+      - "backend/pelanggan/crud.*"
+    acceptance_criteria:
+      - "No HP yang sudah dipakai pelanggan lain -> ditolak"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 6.1
+        --title "CRUD pelanggan"
+        --desc "Validasi nama wajib + no HP unik"
+        --files backend/pelanggan/crud.py --status done
+
+  - id: "6.2"
+    title: "Hapus pelanggan diblokir jika ada riwayat transaksi"
+    description: >
+      Guard eksplisit: hapus pelanggan dengan riwayat transaksi (COUNT>0) selalu ditolak,
+      tanpa override di UI manapun (pertahankan perilaku ini, kontraskan dengan keputusan
+      task 4.3 untuk produk).
+    deliverables:
+      - "backend/pelanggan/delete.*"
+    acceptance_criteria:
+      - "Hapus pelanggan yang punya >=1 transaksi -> selalu ditolak, tidak ada jalur bypass"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 6.2
+        --title "Hapus pelanggan diblokir jika ada riwayat"
+        --desc "Guard hapus pelanggan konsisten tanpa jalur bypass"
+        --files backend/pelanggan/delete.py --status done
+
+  - id: "6.3"
+    title: "Halaman Pelanggan frontend + dialog detail riwayat"
+    description: >
+      Tabel pelanggan (search nama/no HP), dialog detail menampilkan riwayat transaksi
+      (reuse komponen detail transaksi dari task 5.5).
+    deliverables:
+      - "frontend/pelanggan/PelangganPage.*"
+      - "frontend/pelanggan/DetailPelangganDialog.*"
+    acceptance_criteria:
+      - "Double-click baris pelanggan membuka riwayat transaksinya"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 6.3
+        --title "Halaman Pelanggan + dialog detail riwayat"
+        --desc "List pelanggan + reuse komponen detail transaksi"
+        --files frontend/pelanggan/PelangganPage.tsx,frontend/pelanggan/DetailPelangganDialog.tsx
+        --status done
+
+  - id: "6.4"
+    title: "CRUD pengeluaran dengan kategori tunggal (hasil task 1.3)"
+    description: >
+      Endpoint create/update/delete pengeluaran memakai daftar kategori tunggal yang sudah
+      disatukan & di-constrain di DB (task 1.3), validasi jumlah > 0, tanggal wajib.
+    deliverables:
+      - "backend/pengeluaran/crud.*"
+    acceptance_criteria:
+      - "Kategori di luar daftar tunggal ditolak di level API (bukan cuma dropdown UI)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 6.4
+        --title "CRUD pengeluaran kategori tunggal"
+        --desc "Validasi kategori & jumlah > 0 konsisten di API dan DB"
+        --files backend/pengeluaran/crud.py --status done
+
+  - id: "6.5"
+    title: "Halaman Pengeluaran frontend: filter, stat card"
+    description: >
+      Filter bulan (24 bulan ke belakang) + kategori, 3 stat card (jumlah item, total,
+      ditampilkan), search kategori/keterangan.
+    deliverables:
+      - "frontend/pengeluaran/PengeluaranPage.*"
+    acceptance_criteria:
+      - "Filter kategori memakai daftar tunggal yang sama dengan backend (tidak drift)"
+    commands:
+      - >
+        python3 implementasi_plan/scripts/finish_subtask.py --task 6.5
+        --title "Halaman Pengeluaran frontend"
+        --desc "Filter bulan/kategori + stat card + search"
+        --files frontend/pengeluaran/PengeluaranPage.tsx --status done
