@@ -20,7 +20,7 @@ jobs:
       - name: Lint (ruff)
         run: ruff check backend
       - name: Test (pytest)
-        run: pytest backend/tests -q
+        run: PYTHONPATH=backend pytest backend/tests -q
 
   frontend:
     runs-on: ubuntu-latest

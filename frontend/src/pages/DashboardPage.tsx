@@ -201,7 +201,7 @@ const DashboardPage: React.FC = () => {
                           <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: '#0d0d2e', borderColor: '#2d2d5f' }} formatter={(v: number) => `Rp ${v.toLocaleString('id-ID')}`} />
+                      <Tooltip contentStyle={{ backgroundColor: '#0d0d2e', borderColor: '#2d2d5f' }} formatter={(v: any) => `Rp ${Number(v).toLocaleString('id-ID')}`} />
                       <Legend verticalAlign="bottom" height={36} />
                     </PieChart>
                   </ResponsiveContainer>
