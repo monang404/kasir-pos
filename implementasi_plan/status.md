@@ -12,6 +12,14 @@ current_task: "1.1"
 
 | Task ID | Judul Subtask | Status | Mulai | Selesai | Bundle Zip | Catatan |
 |---|---|---|---|---|---|---|
+| 4.8 | Test FIFO & inventory end-to-end | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.8.zip |  |
+| 4.7 | Dialog & endpoint batch stok per produk | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.7.zip |  |
+| 4.6 | Halaman Inventory frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.6.zip |  |
+| 4.5 | Import Excel produk massal | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.5.zip |  |
+| 4.4 | Stock adjustment tambah/kurangi | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.4.zip |  |
+| 4.3 | Keputusan & implementasi hapus produk | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.3.zip |  |
+| 4.2 | CRUD produk dengan validasi | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.2.zip |  |
+| 4.1 | Service FIFO keluar_fifo & tambah_stok | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.1.zip |  |
 | 3.8 | Test end-to-end modul kasir | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.8.zip |  |
 | 3.7 | Struk transaksi: cetak + copy WA | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.7.zip |  |
 | 3.6 | Dialog pembayaran | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/3.6.zip |  |

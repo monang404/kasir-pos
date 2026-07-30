@@ -1,7 +1,7 @@
 ---
 title: kasir-POS Implementasi Plan — Patch Log
-latest_patch_id: PATCH-0022
-total_entries: 22
+latest_patch_id: PATCH-0030
+total_entries: 30
 ---
 
 # PATCHLOG.md — Log Perubahan per Subtask
@@ -12,6 +12,104 @@ total_entries: 22
 > **Wajib diisi setiap kali sebuah subtask (task.subtask, mis. 0.1, 1.2, dst.) selesai dikerjakan.**
 
 <!-- ENTRY BARU DITAMBAHKAN DI SINI (tepat di bawah baris ini, di ATAS entri lama) -->
+
+## PATCH-0030
+**Task ID:** 4.8
+**Tanggal:** 2026-07-30
+**Judul:** Test FIFO & inventory end-to-end
+**Deskripsi:** Test akurasi FIFO, tambah stok selalu batch baru, lintas 3 batch
+**File Berubah:**
+- backend/app/inventory/tests/test_fifo.py
+**Bundle Zip:** implementasi_plan/bundles/4.8.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0029
+**Task ID:** 4.7
+**Tanggal:** 2026-07-30
+**Judul:** Dialog & endpoint batch stok per produk
+**Deskripsi:** Riwayat batch, tambah/hapus batch dengan audit trail
+**File Berubah:**
+- frontend/src/components/inventory/BatchProdukDialog.tsx
+- backend/app/inventory/batch_crud.py
+**Bundle Zip:** implementasi_plan/bundles/4.7.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0028
+**Task ID:** 4.6
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Inventory frontend
+**Deskripsi:** Filter/sort/search + stat card independen dari filter tampilan
+**File Berubah:**
+- frontend/src/pages/InventoryPage.tsx
+**Bundle Zip:** implementasi_plan/bundles/4.6.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0027
+**Task ID:** 4.5
+**Tanggal:** 2026-07-30
+**Judul:** Import Excel produk massal
+**Deskripsi:** Parsing sheet produk + validasi + ringkasan berhasil/dilewati/error
+**File Berubah:**
+- backend/app/inventory/import_excel.py
+**Bundle Zip:** implementasi_plan/bundles/4.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0026
+**Task ID:** 4.4
+**Tanggal:** 2026-07-30
+**Judul:** Stock adjustment tambah/kurangi
+**Deskripsi:** Validasi alasan wajib + stok tidak boleh negatif
+**File Berubah:**
+- backend/app/inventory/stock_adjustment.py
+**Bundle Zip:** implementasi_plan/bundles/4.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0025
+**Task ID:** 4.3
+**Tanggal:** 2026-07-30
+**Judul:** Keputusan & implementasi hapus produk
+**Deskripsi:** Konsistensi guard hapus produk vs pelanggan, didokumentasikan
+**File Berubah:**
+- backend/app/inventory/delete_produk.py
+- implementasi_plan/decisions/0043-hapus-produk.md
+**Bundle Zip:** implementasi_plan/bundles/4.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0024
+**Task ID:** 4.2
+**Tanggal:** 2026-07-30
+**Judul:** CRUD produk dengan validasi
+**Deskripsi:** Kode UPPERCASE unik, validasi harga jual >= harga beli
+**File Berubah:**
+- backend/app/inventory/produk_crud.py
+**Bundle Zip:** implementasi_plan/bundles/4.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0023
+**Task ID:** 4.1
+**Tanggal:** 2026-07-30
+**Judul:** Service FIFO keluar_fifo & tambah_stok
+**Deskripsi:** Implementasi FIFO presisi + auto-hapus batch habis + selalu batch baru saat tambah
+**File Berubah:**
+- backend/app/inventory/fifo_service.py
+**Bundle Zip:** implementasi_plan/bundles/4.1.zip
+**Status:** done
+**Catatan:** -
+
 
 ## PATCH-0022
 **Task ID:** 3.8

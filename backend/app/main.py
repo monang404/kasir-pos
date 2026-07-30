@@ -10,6 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth.login import router as auth_router
 from app.kasir.list_produk import router as list_produk_router
 from app.kasir.checkout_endpoint import router as checkout_router
+from app.inventory.produk_crud import router as inv_produk_router
+from app.inventory.delete_produk import router as inv_delete_router
+from app.inventory.stock_adjustment import router as inv_adjustment_router
+from app.inventory.import_excel import router as inv_import_router
+from app.inventory.batch_crud import router as inv_batch_router
 
 app = FastAPI(title="kasir-POS API", version="0.0.1")
 
@@ -24,6 +29,12 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(list_produk_router)
 app.include_router(checkout_router)
+# Inventory routers
+app.include_router(inv_produk_router)
+app.include_router(inv_delete_router)
+app.include_router(inv_adjustment_router)
+app.include_router(inv_import_router)
+app.include_router(inv_batch_router)
 
 @app.get("/health")
 def health() -> dict:
