@@ -12,7 +12,7 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def setup_db(db):
     # Buat tabel yang dibutuhkan
     db.execute(text("""
-        CREATE TABLE produk (
+        CREATE TABLE IF NOT EXISTS produk (
             id INTEGER PRIMARY KEY,
             kode TEXT UNIQUE,
             nama TEXT,
@@ -22,7 +22,7 @@ def setup_db(db):
         )
     """))
     db.execute(text("""
-        CREATE TABLE produk_batch (
+        CREATE TABLE IF NOT EXISTS produk_batch (
             id INTEGER PRIMARY KEY,
             produk_id INTEGER,
             qty_sisa INTEGER,
@@ -31,7 +31,7 @@ def setup_db(db):
         )
     """))
     db.execute(text("""
-        CREATE TABLE transaksi (
+        CREATE TABLE IF NOT EXISTS transaksi (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             kode TEXT,
             tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -44,7 +44,7 @@ def setup_db(db):
         )
     """))
     db.execute(text("""
-        CREATE TABLE transaksi_detail (
+        CREATE TABLE IF NOT EXISTS transaksi_detail (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             transaksi_id INTEGER,
             produk_id INTEGER,
@@ -59,7 +59,7 @@ def setup_db(db):
         )
     """))
     db.execute(text("""
-        CREATE TABLE activity_log (
+        CREATE TABLE IF NOT EXISTS activity_log (
             id INTEGER PRIMARY KEY,
             user_id INTEGER,
             username TEXT,
@@ -71,6 +71,12 @@ def setup_db(db):
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """))
+    # Clear data for each test
+    db.execute(text("DELETE FROM produk"))
+    db.execute(text("DELETE FROM produk_batch"))
+    db.execute(text("DELETE FROM transaksi"))
+    db.execute(text("DELETE FROM transaksi_detail"))
+    db.execute(text("DELETE FROM activity_log"))
     db.commit()
 
 @pytest.fixture
