@@ -79,6 +79,18 @@ app.include_router(ml_demand_router)
 app.include_router(ml_bonus_router)
 app.include_router(ml_promo_router)
 
+# Task 9: Users, Activity Log, Backup
+from app.users.crud import router as users_crud_router
+from app.users.delete import router as users_delete_router
+from app.activity_log.list_log import router as activity_log_router
+from app.backup.create_list_download import router as backup_cld_router
+from app.backup.restore_delete import router as backup_rd_router
+app.include_router(users_crud_router)
+app.include_router(users_delete_router)
+app.include_router(activity_log_router)
+app.include_router(backup_cld_router)
+app.include_router(backup_rd_router)
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "kasir-pos-backend"}

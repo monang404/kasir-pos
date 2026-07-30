@@ -12,6 +12,13 @@ current_task: "1.1"
 
 | Task ID | Judul Subtask | Status | Mulai | Selesai | Bundle Zip | Catatan |
 |---|---|---|---|---|---|---|
+| 9.7 | Halaman Backup frontend + keputusan scope kalkulator.py | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/9.7.zip |  |
+| 9.6 | Restore dengan safety backup wajib | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/9.6.zip |  |
+| 9.5 | Backup: buat, list, download | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/9.5.zip |  |
+| 9.4 | Halaman Activity Log frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/9.4.zip |  |
+| 9.3 | Activity log otomatis di layer service | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/9.3.zip |  |
+| 9.2 | Hapus user: soft/hard delete sesuai riwayat | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/9.2.zip |  |
+| 9.1 | CRUD user + proteksi diri sendiri | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/9.1.zip |  |
 | 8.6 | Halaman Intelligence/ML frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.6.zip |  |
 | 8.5 | Rekomendasi promo/bonus & Apriori bundling | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.5.zip |  |
 | 8.4 | Prediksi demand & bonus kasir | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/8.4.zip |  |

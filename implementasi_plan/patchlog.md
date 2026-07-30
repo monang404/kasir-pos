@@ -1,7 +1,7 @@
 ---
 title: kasir-POS Implementasi Plan — Patch Log
-latest_patch_id: PATCH-0054
-total_entries: 54
+latest_patch_id: PATCH-0061
+total_entries: 61
 ---
 
 # PATCHLOG.md — Log Perubahan per Subtask
@@ -12,6 +12,92 @@ total_entries: 54
 > **Wajib diisi setiap kali sebuah subtask (task.subtask, mis. 0.1, 1.2, dst.) selesai dikerjakan.**
 
 <!-- ENTRY BARU DITAMBAHKAN DI SINI (tepat di bawah baris ini, di ATAS entri lama) -->
+
+## PATCH-0061
+**Task ID:** 9.7
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Backup frontend + keputusan scope kalkulator.py
+**Deskripsi:** UI backup lengkap + finalisasi open question kalkulator.py
+**File Berubah:**
+- frontend/src/pages/backup/BackupPage.tsx
+- implementasi_plan/decisions/0097-kalkulator-scope.md
+**Bundle Zip:** implementasi_plan/bundles/9.7.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0060
+**Task ID:** 9.6
+**Tanggal:** 2026-07-30
+**Judul:** Restore dengan safety backup wajib
+**Deskripsi:** Restore dibatalkan jika safety backup gagal, hapus backup dengan konfirmasi
+**File Berubah:**
+- backend/app/backup/restore_delete.py
+**Bundle Zip:** implementasi_plan/bundles/9.6.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0059
+**Task ID:** 9.5
+**Tanggal:** 2026-07-30
+**Judul:** Backup: buat, list, download
+**Deskripsi:** Dump DB terkompresi + link download langsung, tercatat di log
+**File Berubah:**
+- backend/app/backup/create_list_download.py
+**Bundle Zip:** implementasi_plan/bundles/9.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0058
+**Task ID:** 9.4
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Activity Log frontend
+**Deskripsi:** Filter + stat card + detail JSON pretty-print + hapus log lama
+**File Berubah:**
+- frontend/src/pages/activity-log/ActivityLogPage.tsx
+**Bundle Zip:** implementasi_plan/bundles/9.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0057
+**Task ID:** 9.3
+**Tanggal:** 2026-07-30
+**Judul:** Activity log otomatis di layer service
+**Deskripsi:** Before/after JSON, best-effort tanpa menggagalkan operasi utama
+**File Berubah:**
+- backend/app/activity_log/logger.py
+- backend/app/activity_log/list_log.py
+**Bundle Zip:** implementasi_plan/bundles/9.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0056
+**Task ID:** 9.2
+**Tanggal:** 2026-07-30
+**Judul:** Hapus user: soft/hard delete sesuai riwayat
+**Deskripsi:** Guard integritas histori transaksi + audit log jelas
+**File Berubah:**
+- backend/app/users/delete.py
+**Bundle Zip:** implementasi_plan/bundles/9.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0055
+**Task ID:** 9.1
+**Tanggal:** 2026-07-30
+**Judul:** CRUD user + proteksi diri sendiri
+**Deskripsi:** Password rules add/edit, proteksi self-delete/deactivate di API
+**File Berubah:**
+- backend/app/users/crud.py
+**Bundle Zip:** implementasi_plan/bundles/9.1.zip
+**Status:** done
+**Catatan:** -
+
 
 ## PATCH-0054
 **Task ID:** 8.6
