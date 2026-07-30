@@ -12,6 +12,12 @@ current_task: "1.1"
 
 | Task ID | Judul Subtask | Status | Mulai | Selesai | Bundle Zip | Catatan |
 |---|---|---|---|---|---|---|
+| 5.6 | Test end-to-end retur stok | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.6.zip |  |
+| 5.5 | Halaman Transaksi + dialog detail/edit | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.5.zip |  |
+| 5.4 | Ganti pelanggan pada transaksi | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.4.zip |  |
+| 5.3 | Edit item transaksi + recalculate | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.3.zip |  |
+| 5.2 | Hapus transaksi + retur stok otomatis | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.2.zip |  |
+| 5.1 | Endpoint list & filter riwayat transaksi | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.1.zip |  |
 | 4.8 | Test FIFO & inventory end-to-end | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.8.zip |  |
 | 4.7 | Dialog & endpoint batch stok per produk | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.7.zip |  |
 | 4.6 | Halaman Inventory frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/4.6.zip |  |

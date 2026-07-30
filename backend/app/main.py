@@ -35,6 +35,15 @@ app.include_router(inv_delete_router)
 app.include_router(inv_adjustment_router)
 app.include_router(inv_import_router)
 app.include_router(inv_batch_router)
+# Transaksi routers
+from app.transaksi.list_transaksi import router as trx_list_router
+from app.transaksi.delete_transaksi import router as trx_delete_router
+from app.transaksi.edit_item import router as trx_edit_router
+from app.transaksi.ganti_pelanggan import router as trx_pelanggan_router
+app.include_router(trx_list_router)
+app.include_router(trx_delete_router)
+app.include_router(trx_edit_router)
+app.include_router(trx_pelanggan_router)
 
 @app.get("/health")
 def health() -> dict:

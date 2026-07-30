@@ -1,7 +1,7 @@
 ---
 title: kasir-POS Implementasi Plan — Patch Log
-latest_patch_id: PATCH-0030
-total_entries: 30
+latest_patch_id: PATCH-0036
+total_entries: 36
 ---
 
 # PATCHLOG.md — Log Perubahan per Subtask
@@ -12,6 +12,79 @@ total_entries: 30
 > **Wajib diisi setiap kali sebuah subtask (task.subtask, mis. 0.1, 1.2, dst.) selesai dikerjakan.**
 
 <!-- ENTRY BARU DITAMBAHKAN DI SINI (tepat di bawah baris ini, di ATAS entri lama) -->
+
+## PATCH-0036
+**Task ID:** 5.6
+**Tanggal:** 2026-07-30
+**Judul:** Test end-to-end retur stok
+**Deskripsi:** Test hapus/edit transaksi -> retur stok & recalculate akurat
+**File Berubah:**
+- backend/app/transaksi/tests/test_retur_stok.py
+**Bundle Zip:** implementasi_plan/bundles/5.6.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0035
+**Task ID:** 5.5
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Transaksi + dialog detail/edit
+**Deskripsi:** List, filter, dan dialog detail/edit item dengan konfirmasi retur stok
+**File Berubah:**
+- frontend/src/pages/TransaksiPage.tsx
+- frontend/src/components/transaksi/DetailTransaksiDialog.tsx
+**Bundle Zip:** implementasi_plan/bundles/5.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0034
+**Task ID:** 5.4
+**Tanggal:** 2026-07-30
+**Judul:** Ganti pelanggan pada transaksi
+**Deskripsi:** Update pelanggan_id + keputusan snapshot nama pelanggan
+**File Berubah:**
+- backend/app/transaksi/ganti_pelanggan.py
+**Bundle Zip:** implementasi_plan/bundles/5.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0033
+**Task ID:** 5.3
+**Tanggal:** 2026-07-30
+**Judul:** Edit item transaksi + recalculate
+**Deskripsi:** Handle qty naik/turun dengan FIFO/retur, recalculate total & profit header
+**File Berubah:**
+- backend/app/transaksi/edit_item.py
+**Bundle Zip:** implementasi_plan/bundles/5.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0032
+**Task ID:** 5.2
+**Tanggal:** 2026-07-30
+**Judul:** Hapus transaksi + retur stok otomatis
+**Deskripsi:** Batch retur baru dengan HPP dari detail asal, atomic dengan hapus header
+**File Berubah:**
+- backend/app/transaksi/delete_transaksi.py
+**Bundle Zip:** implementasi_plan/bundles/5.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0031
+**Task ID:** 5.1
+**Tanggal:** 2026-07-30
+**Judul:** Endpoint list & filter riwayat transaksi
+**Deskripsi:** Filter bulan/pelanggan/search + stat card sesuai semantik lama
+**File Berubah:**
+- backend/app/transaksi/list_transaksi.py
+**Bundle Zip:** implementasi_plan/bundles/5.1.zip
+**Status:** done
+**Catatan:** -
+
 
 ## PATCH-0030
 **Task ID:** 4.8
