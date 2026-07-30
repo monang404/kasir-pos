@@ -45,6 +45,14 @@ app.include_router(trx_delete_router)
 app.include_router(trx_edit_router)
 app.include_router(trx_pelanggan_router)
 
+# Pelanggan & Pengeluaran routers
+from app.pelanggan.crud import router as pelanggan_crud_router
+from app.pelanggan.delete import router as pelanggan_delete_router
+from app.pengeluaran.crud import router as pengeluaran_crud_router
+app.include_router(pelanggan_crud_router)
+app.include_router(pelanggan_delete_router)
+app.include_router(pengeluaran_crud_router)
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "kasir-pos-backend"}

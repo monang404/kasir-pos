@@ -12,6 +12,11 @@ current_task: "1.1"
 
 | Task ID | Judul Subtask | Status | Mulai | Selesai | Bundle Zip | Catatan |
 |---|---|---|---|---|---|---|
+| 6.5 | Halaman Pengeluaran frontend | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/6.5.zip |  |
+| 6.4 | CRUD pengeluaran kategori tunggal | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/6.4.zip |  |
+| 6.3 | Halaman Pelanggan + dialog detail riwayat | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/6.3.zip |  |
+| 6.2 | Hapus pelanggan diblokir jika ada riwayat | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/6.2.zip |  |
+| 6.1 | CRUD pelanggan | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/6.1.zip |  |
 | 5.6 | Test end-to-end retur stok | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.6.zip |  |
 | 5.5 | Halaman Transaksi + dialog detail/edit | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.5.zip |  |
 | 5.4 | Ganti pelanggan pada transaksi | done | 2026-07-30 | 2026-07-30 | implementasi_plan/bundles/5.4.zip |  |

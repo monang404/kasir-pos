@@ -1,7 +1,7 @@
 ---
 title: kasir-POS Implementasi Plan — Patch Log
-latest_patch_id: PATCH-0036
-total_entries: 36
+latest_patch_id: PATCH-0041
+total_entries: 41
 ---
 
 # PATCHLOG.md — Log Perubahan per Subtask
@@ -12,6 +12,67 @@ total_entries: 36
 > **Wajib diisi setiap kali sebuah subtask (task.subtask, mis. 0.1, 1.2, dst.) selesai dikerjakan.**
 
 <!-- ENTRY BARU DITAMBAHKAN DI SINI (tepat di bawah baris ini, di ATAS entri lama) -->
+
+## PATCH-0041
+**Task ID:** 6.5
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Pengeluaran frontend
+**Deskripsi:** Filter bulan/kategori + stat card + search
+**File Berubah:**
+- frontend/src/pages/PengeluaranPage.tsx
+**Bundle Zip:** implementasi_plan/bundles/6.5.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0040
+**Task ID:** 6.4
+**Tanggal:** 2026-07-30
+**Judul:** CRUD pengeluaran kategori tunggal
+**Deskripsi:** Validasi kategori & jumlah > 0 konsisten di API dan DB
+**File Berubah:**
+- backend/app/pengeluaran/crud.py
+**Bundle Zip:** implementasi_plan/bundles/6.4.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0039
+**Task ID:** 6.3
+**Tanggal:** 2026-07-30
+**Judul:** Halaman Pelanggan + dialog detail riwayat
+**Deskripsi:** List pelanggan + reuse komponen detail transaksi
+**File Berubah:**
+- frontend/src/pages/PelangganPage.tsx
+- frontend/src/components/pelanggan/DetailPelangganDialog.tsx
+**Bundle Zip:** implementasi_plan/bundles/6.3.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0038
+**Task ID:** 6.2
+**Tanggal:** 2026-07-30
+**Judul:** Hapus pelanggan diblokir jika ada riwayat
+**Deskripsi:** Guard hapus pelanggan konsisten tanpa jalur bypass
+**File Berubah:**
+- backend/app/pelanggan/delete.py
+**Bundle Zip:** implementasi_plan/bundles/6.2.zip
+**Status:** done
+**Catatan:** -
+
+
+## PATCH-0037
+**Task ID:** 6.1
+**Tanggal:** 2026-07-30
+**Judul:** CRUD pelanggan
+**Deskripsi:** Validasi nama wajib + no HP unik
+**File Berubah:**
+- backend/app/pelanggan/crud.py
+**Bundle Zip:** implementasi_plan/bundles/6.1.zip
+**Status:** done
+**Catatan:** -
+
 
 ## PATCH-0036
 **Task ID:** 5.6
