@@ -78,7 +78,30 @@ const LaporanPage: React.FC = () => {
 
   const handleExport = async () => {
     const q = buildQuery();
-    window.location.href = `http://localhost:8000/laporan/export/${activeTab}?${q}`;
+    try {
+      const res = await fetch(`http://localhost:8000/laporan/export/${activeTab}?${q}`, {
+        headers
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        alert(errorData.detail || 'Gagal mengekspor data');
+        return;
+      }
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `laporan_${activeTab}_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Terjadi kesalahan saat mengekspor laporan');
+    }
   };
 
   return (

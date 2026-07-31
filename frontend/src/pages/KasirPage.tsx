@@ -7,7 +7,10 @@ const KasirPage: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [pelangganInfo, setPelangganInfo] = useState({ id: 1, nama: 'Umum' });
+  const [metodeBayar, setMetodeBayar] = useState('Tunai');
+  const [uangBayar, setUangBayar] = useState<number | ''>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -64,7 +67,61 @@ const KasirPage: React.FC = () => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  const totalBelanja = cart.reduce((sum, item) => sum + item.subtotal, 0);
+  const totalBelanja = cart.reduce((acc, c) => acc + (c.is_bonus ? 0 : c.subtotal), 0);
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    
+    const bayar = Number(uangBayar);
+    if (metodeBayar === 'Tunai' && bayar < totalBelanja) {
+      alert(`Uang bayar (Rp ${bayar}) kurang dari total belanja (Rp ${totalBelanja})!`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const payload = {
+        pelanggan_id: pelangganInfo.id === 1 ? null : pelangganInfo.id,
+        metode_bayar: metodeBayar,
+        uang_bayar: metodeBayar === 'Tunai' ? bayar : totalBelanja, // Jika non-tunai, anggap lunas pas
+        items: cart.map(c => ({
+          produk_id: c.id,
+          qty: c.qty,
+          harga_jual: c.harga_jual_efektif,
+          diskon: c.diskon,
+          harga_tinta: c.harga_tinta,
+          warna: c.warna,
+          is_bonus: c.is_bonus
+        }))
+      };
+
+      const res = await fetch(`http://localhost:8000/kasir/checkout`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Transaksi Berhasil!\nKode: ${data.data?.kode}\nKembalian: Rp ${(metodeBayar === 'Tunai' ? bayar - totalBelanja : 0).toLocaleString('id-ID')}`);
+        setCart([]);
+        setUangBayar('');
+        setMetodeBayar('Tunai');
+        fetchProducts(); // Refresh stok
+      } else {
+        alert(data.detail || 'Transaksi Gagal');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan jaringan');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#0a0a2a', color: '#e2e8f0', fontFamily: 'sans-serif' }}>
@@ -169,12 +226,30 @@ const KasirPage: React.FC = () => {
         <div style={{ backgroundColor: '#11113a', padding: '1rem', borderRadius: '4px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <span>Total Belanja:</span>
-            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white' }}>Rp {totalBelanja.toLocaleString('id-ID')}</span>
+            <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>Rp {totalBelanja.toLocaleString('id-ID')}</span>
           </div>
+          
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8', fontSize: '0.875rem' }}>Metode Bayar</label>
+              <select value={metodeBayar} onChange={e => setMetodeBayar(e.target.value)} style={{ width: '100%', padding: '0.75rem', backgroundColor: '#1e1e4a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }}>
+                <option value="Tunai">Tunai</option>
+                <option value="Transfer BCA">Transfer BCA</option>
+                <option value="QRIS">QRIS</option>
+              </select>
+            </div>
+            {metodeBayar === 'Tunai' && (
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8', fontSize: '0.875rem' }}>Uang Bayar (Rp)</label>
+                <input type="number" value={uangBayar} onChange={e => setUangBayar(Number(e.target.value))} min={totalBelanja} style={{ width: '100%', padding: '0.75rem', backgroundColor: '#1e1e4a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} placeholder="Masukkan nominal..." />
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button onClick={() => setCart([])} style={{ flex: 1, padding: '0.75rem', backgroundColor: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '4px', cursor: 'pointer' }}>Kosongkan</button>
-            <button disabled={cart.length === 0} style={{ flex: 2, padding: '0.75rem', backgroundColor: cart.length === 0 ? '#334155' : '#4f46e5', color: 'white', border: 'none', borderRadius: '4px', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
-              💳 Bayar
+            <button onClick={() => {setCart([]); setUangBayar('');}} style={{ flex: 1, padding: '0.75rem', backgroundColor: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '4px', cursor: 'pointer' }}>Kosongkan</button>
+            <button onClick={handleCheckout} disabled={cart.length === 0 || isSubmitting} style={{ flex: 2, padding: '0.75rem', backgroundColor: cart.length === 0 ? '#334155' : '#4f46e5', color: 'white', border: 'none', borderRadius: '4px', cursor: cart.length === 0 || isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+              {isSubmitting ? 'Memproses...' : '💳 Bayar Sekarang'}
             </button>
           </div>
         </div>

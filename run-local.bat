@@ -17,7 +17,7 @@ if not exist "backend\venv\Scripts\activate.bat" (
 
 :: Menjalankan Backend di jendela baru (dengan virtual environment)
 echo [1/2] Menyalakan Backend (FastAPI)...
-start "Kasir POS - Backend" cmd /k "cd backend && call venv\Scripts\activate.bat && set DATABASE_URL=postgresql+psycopg2://kasir:kasir@localhost:5432/kasir_pos && set REDIS_URL=redis://localhost:6379/0 && set SECRET_KEY=supersecret && uvicorn app.main:app --reload"
+start "Kasir POS - Backend" cmd /k "cd backend && call venv\Scripts\activate.bat && set DATABASE_URL=sqlite:///./kasir.db && set REDIS_URL=redis://localhost:6379/0 && set SECRET_KEY=supersecret && python init_db.py && uvicorn app.main:app --reload"
 
 :: Menjalankan Frontend di jendela baru
 echo [2/2] Menyalakan Frontend (React/Vite)...

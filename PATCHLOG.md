@@ -1,7 +1,7 @@
 ---
 title: kasir-POS — Patch Log
-latest_patch_id: PATCH-2026-07-31-088
-total_entries: 88
+latest_patch_id: PATCH-2026-07-31-090
+total_entries: 90
 ---
 
 # PATCHLOG.md — Log Perubahan Proyek (Single Source of Truth)
@@ -20,6 +20,86 @@ total_entries: 88
 > (addendum perbaikan bug 29-36). Field `Type`/`Area`/`Priority`/`Breaking Change`/
 > `Regression Risk` bernilai `Unclassified` pada entri hasil migrasi karena data tsb tidak
 > tersedia di format lama — ini SAH, bukan bug (lihat docstring `automation/patchlog.py`).
+
+---
+
+## PATCH-2026-07-31-090
+
+**Tanggal:** 2026-07-31
+**Timestamp:** 11:13
+**Git Branch:** main
+**Git Commit:** 9606069
+**Type:** Fix
+**Area:** Backend
+**Priority:** Medium
+**Title:** Validasi role user via Pydantic field_validator (Temuan 14)
+
+**Reason:** Validasi role manual raise ValueError yg unhandled menyebabkan 500
+
+**Root Cause:**
+Validasi dilakukan manual di router dan raise ValueError biasa
+
+**Solution:**
+Gunakan @field_validator dari Pydantic (sudah diterapkan di commit sebelumnya)
+
+**Changed Files:**
+- `backend/app/users/crud.py`
+
+**Changed Symbols:**
+- (tidak ada)
+
+**Tests:** pytest tests/backend/app/users -q
+
+**Breaking Change:** No
+
+**Regression Risk:** Low
+
+**Related Patch:** -
+
+**Status:** Merged
+
+**Notes:**
+-
+
+---
+
+## PATCH-2026-07-31-089
+
+**Tanggal:** 2026-07-31
+**Timestamp:** 11:13
+**Git Branch:** main
+**Git Commit:** 9606069
+**Type:** Fix
+**Area:** Backend
+**Priority:** Medium
+**Title:** CheckoutRequest.pelanggan_id jadi int | None (Temuan 10)
+
+**Reason:** Mencegah ValidationError saat pelanggan_id null dikirim di checkout
+
+**Root Cause:**
+Pydantic menolak None untuk tipe int = None (Temuan 10)
+
+**Solution:**
+Anotasi diubah menjadi int | None = None. Sudah diperbaiki di commit sebelumnya, status diverifikasi.
+
+**Changed Files:**
+- `backend/app/kasir/checkout_service.py`
+
+**Changed Symbols:**
+- (tidak ada)
+
+**Tests:** pytest tests/backend/app/kasir -q
+
+**Breaking Change:** No
+
+**Regression Risk:** Low
+
+**Related Patch:** -
+
+**Status:** Merged
+
+**Notes:**
+-
 
 ---
 

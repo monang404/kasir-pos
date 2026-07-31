@@ -112,6 +112,16 @@ current_task: "addendum_29-36 (diperluas ke Temuan 1-36) sesi 1 dan 2 selesai, l
 | Addendum 29-36 | 6.1 | Race condition trigger job ML | done | 2026-07-31 | 2026-07-31 |  |  |
 | Addendum 29-36 | 6.2 | Perbaiki bare except NameError | done | 2026-07-31 | 2026-07-31 |  |  |
 | Addendum 29-36 | 6.3 | Tambahkan numpy/scikit-learn | done | 2026-07-31 | 2026-07-31 |  |  |
+| Addendum 29-36 | 7.1 | CheckoutRequest.pelanggan_id: int|None (Temuan 10) | done | 2026-07-31 | 2026-07-31 |  | Ternyata sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.2 | Validasi role user lewat Pydantic field_validator | done | 2026-07-31 | 2026-07-31 |  | Ternyata sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.3 | Import Excel: savepoint per baris | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.4 | Wajibkan alasan saat hapus batch dengan qty_sisa > 0 | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.5 | Konsolidasi activity log lewat helper log_action() | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.6 | Ganti print() dengan modul logging standar | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.7 | Hapus dependency passlib[bcrypt] | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.8 | Keputusan & dokumentasi status service Redis | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.9 | Perbaiki unit SESSION_TIMEOUT | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 7.10 | datetime.now() naive vs UTC | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
 
 Legenda Status: `pending` → `in_progress` → `done` (atau `blocked` jika terhambat, jelaskan di Catatan).
 

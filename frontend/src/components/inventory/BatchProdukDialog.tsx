@@ -23,11 +23,11 @@ interface Props {
 const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) => {
   const [data, setData] = useState<BatchData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showTambah, setShowTambah] = useState(false);
   const [newQty, setNewQty] = useState('');
   const [newHargaBeli, setNewHargaBeli] = useState('');
   const [newTgl, setNewTgl] = useState(new Date().toISOString().split('T')[0]);
   const [konfirmasiHapusId, setKonfirmasiHapusId] = useState<number | null>(null);
+  const [alasanHapus, setAlasanHapus] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -36,13 +36,18 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
 
   const fetchBatch = async () => {
     setIsLoading(true);
+    setErrorMsg('');
     try {
       const res = await fetch(`http://localhost:8000/inventory/batch/${produkId}`, { headers });
       if (res.ok) {
         setData(await res.json());
+      } else {
+        const errText = await res.text();
+        setErrorMsg(`Gagal memuat batch (HTTP ${res.status}): ${errText}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setErrorMsg(`Kesalahan jaringan: ${e.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +72,6 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
       });
       const result = await res.json();
       if (!res.ok) { setErrorMsg(result.detail || 'Gagal tambah batch'); return; }
-      setShowTambah(false);
       setNewQty(''); setNewHargaBeli('');
       fetchBatch();
       onChanged?.();
@@ -76,12 +80,22 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
     }
   };
 
-  const handleHapus = async (batchId: number) => {
+  const handleHapus = async (batchId: number, qtySisa: number) => {
+    if (qtySisa > 0 && (!alasanHapus || alasanHapus.length < 5)) {
+      setErrorMsg('Alasan hapus wajib diisi minimal 5 karakter karena stok masih ada');
+      return;
+    }
     setSubmitLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/inventory/batch/${batchId}`, { method: 'DELETE', headers });
+      const body = qtySisa > 0 ? JSON.stringify({ alasan: alasanHapus }) : undefined;
+      const res = await fetch(`http://localhost:8000/inventory/batch/${batchId}`, { 
+        method: 'DELETE', 
+        headers,
+        body
+      });
       if (res.ok) {
         setKonfirmasiHapusId(null);
+        setAlasanHapus('');
         fetchBatch();
         onChanged?.();
       } else {
@@ -121,31 +135,31 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
 
         {isLoading ? (
           <p style={{ textAlign: 'center' }}>Loading...</p>
-        ) : data ? (
+        ) : (
           <>
-            {/* SUMMARY */}
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ flex: 1, backgroundColor: '#11113a', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #4f46e5' }}>
-                <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Total Batch</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{data.total_batch}</div>
-              </div>
-              <div style={{ flex: 1, backgroundColor: '#11113a', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #22c55e' }}>
-                <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Total Stok Sisa</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4ade80' }}>{data.total_stok}</div>
-              </div>
-            </div>
-
             {errorMsg && (
               <div style={{ backgroundColor: '#7f1d1d', color: '#fca5a5', padding: '0.75rem', borderRadius: '4px', marginBottom: '1rem' }}>
                 {errorMsg}
               </div>
             )}
+            
+            {data && (
+              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ flex: 1, backgroundColor: '#11113a', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #4f46e5' }}>
+                  <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Total Batch</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{data.total_batch}</div>
+                </div>
+                <div style={{ flex: 1, backgroundColor: '#11113a', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #22c55e' }}>
+                  <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Total Stok Sisa</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4ade80' }}>{data.total_stok}</div>
+                </div>
+              </div>
+            )}
 
             {/* FORM TAMBAH BATCH */}
-            {showTambah && (
-              <div style={{ backgroundColor: '#11113a', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #2d2d5f' }}>
-                <h4 style={{ margin: '0 0 1rem 0' }}>Tambah Batch Baru</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <div style={{ backgroundColor: '#11113a', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #2d2d5f', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h4 style={{ margin: '0', fontSize: '1rem', color: '#e2e8f0' }}>Tambah Stok (Batch Baru)</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                   <div>
                     <label style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Qty</label>
                     <input type="number" value={newQty} onChange={e => setNewQty(e.target.value)} min={1}
@@ -161,23 +175,18 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
                     <input type="date" value={newTgl} onChange={e => setNewTgl(e.target.value)}
                       style={{ display: 'block', width: '100%', padding: '0.5rem', backgroundColor: '#0d0d2e', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} />
                   </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={handleTambah} disabled={submitLoading}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: '#4f46e5', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>
-                    {submitLoading ? 'Menyimpan...' : 'Simpan Batch'}
-                  </button>
-                  <button onClick={() => setShowTambah(false)}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>
-                    Batal
-                  </button>
-                </div>
               </div>
-            )}
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button onClick={handleTambah} disabled={submitLoading}
+                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#4f46e5', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  {submitLoading ? 'Menyimpan...' : 'Simpan Stok / Batch'}
+                </button>
+              </div>
+            </div>
 
             {/* DAFTAR BATCH */}
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {data.batches.length === 0 ? (
+              {!data || data.batches.length === 0 ? (
                 <p style={{ textAlign: 'center', color: '#64748b' }}>Belum ada data batch</p>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -210,20 +219,22 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
                         </td>
                         <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                           {konfirmasiHapusId === b.id ? (
-                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
                               {b.qty_sisa > 0 && (
-                                <span style={{ fontSize: '0.75rem', color: '#f59e0b', alignSelf: 'center' }}>
-                                  ⚠️ Stok {b.qty_sisa} akan hilang!
-                                </span>
+                                <input type="text" placeholder="Alasan hapus (min 5 char)..." 
+                                  value={alasanHapus} onChange={(e) => setAlasanHapus(e.target.value)}
+                                  style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #2d2d5f', backgroundColor: '#0d0d2e', color: 'white', fontSize: '0.75rem', width: '200px' }} />
                               )}
-                              <button onClick={() => handleHapus(b.id)} disabled={submitLoading}
-                                style={{ padding: '0.25rem 0.75rem', backgroundColor: '#dc2626', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>
-                                Ya, Hapus
-                              </button>
-                              <button onClick={() => setKonfirmasiHapusId(null)}
-                                style={{ padding: '0.25rem 0.75rem', backgroundColor: 'transparent', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>
-                                Batal
-                              </button>
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button onClick={() => handleHapus(b.id, b.qty_sisa)} disabled={submitLoading}
+                                  style={{ padding: '0.25rem 0.75rem', backgroundColor: '#dc2626', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>
+                                  Konfirmasi Hapus
+                                </button>
+                                <button onClick={() => { setKonfirmasiHapusId(null); setAlasanHapus(''); }}
+                                  style={{ padding: '0.25rem 0.75rem', backgroundColor: 'transparent', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>
+                                  Batal
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <button onClick={() => setKonfirmasiHapusId(b.id)}
@@ -240,15 +251,13 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
             </div>
 
             {/* FOOTER */}
-            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #2d2d5f' }}>
-              <button onClick={() => { setShowTambah(true); setErrorMsg(''); }}
-                style={{ padding: '0.75rem 1.5rem', backgroundColor: '#4f46e5', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                + Tambah Batch Baru
+            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #2d2d5f', textAlign: 'right' }}>
+              <button onClick={onClose}
+                style={{ padding: '0.75rem 1.5rem', backgroundColor: '#374151', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                Tutup
               </button>
             </div>
           </>
-        ) : (
-          <p>Data tidak ditemukan</p>
         )}
       </div>
     </div>

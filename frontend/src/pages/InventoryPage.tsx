@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import BatchProdukDialog from '../components/inventory/BatchProdukDialog';
 
 interface Product {
   id: number;
@@ -16,6 +17,19 @@ const InventoryPage: React.FC = () => {
   const [stockFilter, setStockFilter] = useState<'ALL' | 'NORMAL' | 'LOW' | 'OUT'>('ALL');
   const [sortBy, setSortBy] = useState('kode_asc');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Form State for Tambah Produk
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({ kode: '', nama: '', ukuran: '', harga_beli: 0, harga_jual: 0 });
+  
+  // State for Edit
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  
+  // State for Batch
+  const [selectedProductForBatch, setSelectedProductForBatch] = useState<Product | null>(null);
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -42,6 +56,92 @@ const InventoryPage: React.FC = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8000/inventory/produk/`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newProduct)
+      });
+      
+      if (res.ok) {
+        setIsAddModalOpen(false);
+        setNewProduct({ kode: '', nama: '', ukuran: '', harga_beli: 0, harga_jual: 0 });
+        fetchProducts(); // Refresh list
+      } else {
+        const errorData = await res.json();
+        alert(errorData.detail || 'Gagal menambahkan produk');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan jaringan saat menambah produk');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editProduct) return;
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8000/inventory/produk/${editProduct.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          kode: editProduct.kode,
+          nama: editProduct.nama,
+          ukuran: editProduct.ukuran,
+          harga_beli: editProduct.harga_beli,
+          harga_jual: editProduct.harga_jual
+        })
+      });
+      
+      if (res.ok) {
+        setIsEditModalOpen(false);
+        setEditProduct(null);
+        fetchProducts(); 
+      } else {
+        const errorData = await res.json();
+        alert(errorData.detail || 'Gagal mengubah produk');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan jaringan');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: number, nama: string) => {
+    if (!window.confirm(`Yakin ingin menghapus produk ${nama}?`)) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8000/inventory/produk/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchProducts();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.detail || 'Gagal menghapus produk');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan jaringan saat menghapus');
+    }
+  };
 
   // Hitung stats dari SELURUH data (sebelum difilter)
   const stats = useMemo(() => {
@@ -144,18 +244,58 @@ const InventoryPage: React.FC = () => {
           <option value="harga_desc">Harga Termahal</option>
         </select>
 
-        <button style={{ padding: '0.75rem 1.5rem', backgroundColor: '#4f46e5', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          style={{ padding: '0.75rem 1.5rem', backgroundColor: '#4f46e5', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           + Tambah Produk
         </button>
       </div>
 
+      {/* MODAL TAMBAH PRODUK */}
+      {isAddModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{ backgroundColor: '#1e1e4a', padding: '2rem', borderRadius: '8px', width: '400px', border: '1px solid #2d2d5f' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Tambah Produk Baru</h2>
+            <form onSubmit={handleAddProduct}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Kode Produk</label>
+                <input required type="text" value={newProduct.kode} onChange={e => setNewProduct({...newProduct, kode: e.target.value})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Nama Produk</label>
+                <input required type="text" value={newProduct.nama} onChange={e => setNewProduct({...newProduct, nama: e.target.value})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Ukuran</label>
+                <input type="text" value={newProduct.ukuran} onChange={e => setNewProduct({...newProduct, ukuran: e.target.value})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Harga Beli</label>
+                <input required type="number" min="0" value={newProduct.harga_beli} onChange={e => setNewProduct({...newProduct, harga_beli: Number(e.target.value)})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Harga Jual</label>
+                <input required type="number" min="1" value={newProduct.harga_jual} onChange={e => setNewProduct({...newProduct, harga_jual: Number(e.target.value)})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setIsAddModalOpen(false)} style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', border: '1px solid #64748b', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>Batal</button>
+                <button type="submit" disabled={isSubmitting} style={{ padding: '0.5rem 1rem', backgroundColor: '#4f46e5', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
       <div style={{ marginBottom: '1rem', color: '#94a3b8', fontSize: '0.875rem' }}>
         Menampilkan {filteredProducts.length} produk
       </div>
 
       {/* TABLE */}
-      <div style={{ backgroundColor: '#11113a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #2d2d5f' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+      <div style={{ backgroundColor: '#11113a', borderRadius: '8px', overflowX: 'auto', border: '1px solid #2d2d5f' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
           <thead style={{ backgroundColor: '#1e1e4a', borderBottom: '1px solid #2d2d5f' }}>
             <tr>
               <th style={{ padding: '1rem' }}>Kode</th>
@@ -192,10 +332,10 @@ const InventoryPage: React.FC = () => {
                       {p.stok_total}
                     </span>
                   </td>
-                  <td style={{ padding: '1rem', textAlign: 'center' }}>
-                    <button style={{ marginRight: '0.5rem', padding: '0.25rem 0.5rem', backgroundColor: '#374151', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
-                    <button style={{ marginRight: '0.5rem', padding: '0.25rem 0.5rem', backgroundColor: '#374151', border: 'none', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer' }}>Batch / +Stok</button>
-                    <button style={{ padding: '0.25rem 0.5rem', backgroundColor: '#7f1d1d', border: 'none', color: '#fca5a5', borderRadius: '4px', cursor: 'pointer' }}>Hapus</button>
+                  <td style={{ padding: '1rem' }}>
+                    <button onClick={() => {setEditProduct(p); setIsEditModalOpen(true);}} style={{ marginRight: '0.5rem', padding: '0.25rem 0.5rem', backgroundColor: '#374151', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => setSelectedProductForBatch(p)} style={{ marginRight: '0.5rem', padding: '0.25rem 0.5rem', backgroundColor: '#374151', border: 'none', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Tambah Stok / Batch</button>
+                    <button onClick={() => handleDelete(p.id, p.nama)} style={{ padding: '0.25rem 0.5rem', backgroundColor: '#7f1d1d', border: 'none', color: '#fca5a5', borderRadius: '4px', cursor: 'pointer' }}>Hapus</button>
                   </td>
                 </tr>
               ))
@@ -203,6 +343,55 @@ const InventoryPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+      
+      {/* MODAL EDIT PRODUK */}
+      {isEditModalOpen && editProduct && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{ backgroundColor: '#1e1e4a', padding: '2rem', borderRadius: '8px', width: '400px', border: '1px solid #2d2d5f' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Edit Produk</h2>
+            <form onSubmit={handleEditProduct}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Kode Produk</label>
+                <input required type="text" value={editProduct.kode} onChange={e => setEditProduct({...editProduct, kode: e.target.value})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Nama Produk</label>
+                <input required type="text" value={editProduct.nama} onChange={e => setEditProduct({...editProduct, nama: e.target.value})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Ukuran</label>
+                <input type="text" value={editProduct.ukuran || ''} onChange={e => setEditProduct({...editProduct, ukuran: e.target.value})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Harga Beli</label>
+                <input required type="number" min="0" value={editProduct.harga_beli} onChange={e => setEditProduct({...editProduct, harga_beli: Number(e.target.value)})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>Harga Jual</label>
+                <input required type="number" min="1" value={editProduct.harga_jual} onChange={e => setEditProduct({...editProduct, harga_jual: Number(e.target.value)})} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#11113a', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setIsEditModalOpen(false)} style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', border: '1px solid #64748b', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>Batal</button>
+                <button type="submit" disabled={isSubmitting} style={{ padding: '0.5rem 1rem', backgroundColor: '#4f46e5', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {selectedProductForBatch && (
+        <BatchProdukDialog
+          produkId={selectedProductForBatch.id}
+          onClose={() => {
+            setSelectedProductForBatch(null);
+            fetchProducts();
+          }}
+        />
+      )}
+
     </div>
   );
 };

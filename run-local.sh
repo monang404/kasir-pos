@@ -15,7 +15,7 @@ fi
 
 echo "[1/2] Menyalakan Backend (FastAPI)..."
 # Jalankan backend di background
-(cd backend && source venv/bin/activate && export DATABASE_URL="postgresql+psycopg2://kasir:kasir@localhost:5432/kasir_pos" && export REDIS_URL="redis://localhost:6379/0" && export SECRET_KEY="supersecret" && uvicorn app.main:app --reload) &
+(cd backend && source venv/bin/activate && export DATABASE_URL="sqlite:///./kasir.db" && export REDIS_URL="redis://localhost:6379/0" && export SECRET_KEY="supersecret" && python init_db.py && uvicorn app.main:app --reload) &
 BACKEND_PID=$!
 
 echo "[2/2] Menyalakan Frontend (React/Vite)..."
