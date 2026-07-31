@@ -6,10 +6,13 @@ Usage:
     log_action(db, actor, "CREATE", "produk", str(produk_id), info="...", before=None, after=data)
 """
 import json
+import logging
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 def log_action(
@@ -51,4 +54,4 @@ def log_action(
         # Tidak commit di sini — biarkan caller yang commit setelah operasi utama
     except Exception as e:
         # Telan error, jangan propagate
-        print(f"[ACTIVITY_LOG] Gagal mencatat log (best-effort, operasi tetap lanjut): {e}")
+        logger.error(f"[ACTIVITY_LOG] Gagal mencatat log (best-effort, operasi tetap lanjut): {e}")

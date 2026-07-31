@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/inventory/produk", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")
@@ -53,16 +54,7 @@ def delete_produk(
     db.execute(text("DELETE FROM produk WHERE id = :id"), {"id": produk_id})
     
     # Audit log
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'DELETE', 'produk', :kode, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kode": produk.kode, "info": f"Menghapus produk {produk.nama} secara permanen"
-        }
-    )
+    log_action(db, user, 'DELETE', 'produk', produk.kode, f"Menghapus produk {produk.nama} secara permanen")
     
     db.commit()
     

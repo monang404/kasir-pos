@@ -1,18 +1,16 @@
-
 from fastapi import APIRouter, Depends, HTTPException
-from passlib.context import CryptContext
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.auth.require_role import RequireModule
+from app.auth.security import hash_password
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/users", tags=["users"])
 check_access = RequireModule("users")
-
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class UserCreate(BaseModel):
@@ -22,9 +20,12 @@ class UserCreate(BaseModel):
     role: str
     is_active: int = 1
 
-    def validate_role(self):
-        if self.role not in ('admin', 'kasir', 'gudang'):
-            raise ValueError(f"Role tidak valid: {self.role}")
+    @field_validator('role')
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ('admin', 'kasir', 'gudang'):
+            raise ValueError(f"Role tidak valid: {v}")
+        return v
 
 
 class UserUpdate(BaseModel):
@@ -33,9 +34,12 @@ class UserUpdate(BaseModel):
     role: str
     is_active: int = 1
 
-    def validate_role(self):
-        if self.role not in ('admin', 'kasir', 'gudang'):
-            raise ValueError(f"Role tidak valid: {self.role}")
+    @field_validator('role')
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ('admin', 'kasir', 'gudang'):
+            raise ValueError(f"Role tidak valid: {v}")
+        return v
 
 
 @router.get("/", dependencies=[Depends(check_access)])
@@ -63,7 +67,6 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    req.validate_role()
     # Cek username unik
     existing = db.execute(
         text("SELECT id FROM users WHERE lower(username) = lower(:u)"),
@@ -72,7 +75,7 @@ def create_user(
     if existing:
         raise HTTPException(status_code=400, detail=f"Username '{req.username}' sudah digunakan")
 
-    pw_hash = pwd_ctx.hash(req.password)
+    pw_hash = hash_password(req.password)
     result = db.execute(
         text("""
             INSERT INTO users (username, password_hash, nama_lengkap, role, is_active)
@@ -83,7 +86,7 @@ def create_user(
          "role": req.role, "active": req.is_active}
     ).fetchone()
 
-    _log(db, current_user, "CREATE", "users", str(result.id),
+    log_action(db, current_user, "CREATE", "users", str(result.id),
          f"Buat user baru: {req.username} ({req.role})")
     db.commit()
     return {"message": "User berhasil dibuat", "id": result.id}
@@ -96,7 +99,6 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    req.validate_role()
     target = db.execute(
         text("SELECT id, username FROM users WHERE id = :id"), {"id": user_id}
     ).fetchone()
@@ -104,31 +106,19 @@ def update_user(
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
 
     if req.password:
-        pw_hash = pwd_ctx.hash(req.password)
+        pw_hash = hash_password(req.password)
         db.execute(
-            text("UPDATE users SET nama_lengkap=:nama, password_hash=:pw, role=:role, is_active=:active WHERE id=:id"),
+            text("UPDATE users SET nama_lengkap=:nama, password_hash=:pw, role=:role, is_active=:active, token_version=token_version+1 WHERE id=:id"),
             {"nama": req.nama_lengkap, "pw": pw_hash, "role": req.role, "active": req.is_active, "id": user_id}
         )
     else:
         db.execute(
-            text("UPDATE users SET nama_lengkap=:nama, role=:role, is_active=:active WHERE id=:id"),
+            text("UPDATE users SET nama_lengkap=:nama, role=:role, is_active=:active, token_version=token_version+1 WHERE id=:id"),
             {"nama": req.nama_lengkap, "role": req.role, "active": req.is_active, "id": user_id}
         )
 
-    _log(db, current_user, "UPDATE", "users", str(user_id),
+    log_action(db, current_user, "UPDATE", "users", str(user_id),
          f"Update user {target.username}: role={req.role}, active={req.is_active}")
     db.commit()
     return {"message": "User berhasil diupdate"}
 
-
-def _log(db: Session, actor: dict, aksi: str, modul: str, target_id: str, info: str):
-    try:
-        db.execute(text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, :aksi, :modul, :tid, :info)
-        """), {
-            "uid": actor.get("id"), "uname": actor.get("username"), "role": actor.get("role"),
-            "aksi": aksi, "modul": modul, "tid": target_id, "info": info
-        })
-    except Exception:
-        pass  # best-effort log

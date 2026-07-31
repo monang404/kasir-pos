@@ -1,0 +1,149 @@
+# =============================================================================
+# 03_sesi3_formula_finansial_concurrency.yaml — Sesi 3
+# =============================================================================
+# Rencana: "Addendum 29-36"  |  Lihat 00_index.yaml untuk urutan sesi lengkap.
+
+sesi_id: sesi_3
+judul: "Konsistensi Formula Finansial & Concurrency"
+status: pending
+depends_on_sesi: ["sesi_1", "sesi_2"]
+
+tasks:
+  # ---------------------------------------------------------------------
+  - id: "3.1"
+    judul: "Satukan formula total/profit (harga_tinta) di satu helper bersama"
+    temuan_ref: [32]
+    severity: Critical
+    status: pending
+    depends_on: []
+    files:
+      buat_baru:
+        - backend/app/kasir/pricing.py   # helper baru, nama folder/modul bebas ditentukan pelaksana selama konsisten dgn AI_CONTEXT.md §2 (satu subfolder per modul domain) -- taruh di app/kasir/ karena checkout_service.py ada di situ, atau buat app/common/ jika tim lebih suka helper lintas-modul terpisah
+      edit:
+        - backend/app/kasir/checkout_service.py               # line 130-165, ganti perhitungan total_omzet/profit manual dengan pemanggilan helper baru
+        - backend/app/transaksi/edit_item.py                   # def recalculate_total_profit(), line 19-44
+        - backend/app/laporan/ringkasan_transaksi_produk.py    # line 130-146 (endpoint /laporan/produk)
+        - backend/app/laporan/export_xlsx.py                    # line 108-121 (tab "produk")
+    masalah: |
+      checkout_service.py menghitung `total_omzet += harga_jual * qty` (TIDAK
+      termasuk harga_tinta) lalu `profit = total_omzet - total_hpp - total_tinta`
+      (tinta dikurangkan sebagai biaya). Sebaliknya, recalculate_total_profit()
+      di edit_item.py -- yang otomatis terpanggil SETIAP kali qty item apa pun
+      diedit lewat PATCH /transaksi/{id}/item/{detail_id} -- menghitung
+      `subtotal_jual = (harga_jual + harga_tinta) * qty` (tinta DIMASUKKAN ke
+      omzet) dan `profit += subtotal_jual - subtotal_hpp` (tinta menambah
+      profit, bukan mengurangi -- kebalikan dari formula checkout). Endpoint
+      laporan produk (ringkasan_transaksi_produk.py) dan export xlsx tab
+      "produk" memakai formula yang SAMA dengan edit_item.py (bukan checkout).
+
+      Terverifikasi 2026-07-31 langsung terhadap kode: transaksi qty=5,
+      harga_jual=2000, harga_tinta=300, HPP=1000/unit -> checkout hasilkan
+      total=10000, profit=3500 (benar sesuai rumus checkout). Memanggil
+      recalculate_total_profit untuk transaksi YANG SAMA (tanpa ubah qty
+      apa pun) hasilkan total=11500, profit=6500 -- total naik 1500 (=total
+      tinta), profit naik 3000 (2x nilai tinta, akibat tanda terbalik).
+      Begitu kasir/admin edit qty SATU item saja pada transaksi berharga
+      tinta, header total/profit transaksi tsb berubah PERMANEN dengan
+      rumus yang salah -- merusak dashboard, laporan, dan skor bonus kasir.
+    solusi:
+      - "Putuskan definisi tunggal: harga_tinta adalah BIAYA (mengurangi profit), BUKAN bagian omzet -- ini konsisten dengan formula checkout_service.py yang sudah berjalan di produksi sejak awal, dan dengan model bisnis (tinta = bahan yang dipakai, bukan yang dijual)."
+      - "Buat fungsi bersama, mis. `hitung_total_dan_profit(harga_jual, harga_beli, harga_tinta, qty, is_bonus) -> (total, profit)` di file baru yang ditentukan, dengan formula: total = harga_jual*qty (tinta TIDAK masuk total/omzet); profit = (harga_jual - harga_beli - harga_tinta) * qty; bonus selalu (0, 0)."
+      - "Panggil fungsi ini dari KEEMPAT lokasi (checkout_service.py, edit_item.py, ringkasan_transaksi_produk.py, export_xlsx.py) -- hapus duplikasi formula manual di tempat-tempat tsb."
+      - "Tambahkan test unit baru khusus untuk helper ini yang menguji kasus harga_tinta bukan-nol (persis skenario yang lolos dari test lama -- lihat catatan di acceptance_criteria)."
+    acceptance_criteria:
+      - "Test baru: checkout dengan harga_tinta>0, lalu panggil recalculate_total_profit tanpa ubah qty apa pun -- total dan profit HARUS SAMA PERSIS dengan hasil checkout awal (idempotent)."
+      - "Laporan produk (ringkasan & export xlsx) menghasilkan angka omzet/profit yang identik dengan tab Transaksi untuk periode yang sama."
+      - "test_recalculate_setelah_edit_qty di tests/backend/app/transaksi/test_retur_stok.py diperluas untuk mencakup kasus harga_tinta bukan-nol (test lama tidak menguji ini, itu sebabnya bug ini lolos sebelumnya)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/kasir tests/backend/app/transaksi tests/backend/app/laporan -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "Yes"
+      risk: Medium
+      title_saran: "Satukan formula total/profit lintas checkout/edit-item/laporan (Temuan 32)"
+      catatan_breaking: >
+        Breaking=Yes karena transaksi LAMA yang sudah tersimpan dengan
+        formula edit_item.py yang salah (jika pernah dieksekusi di data
+        produksi sebelum fix ini) TIDAK otomatis terkoreksi -- pertimbangkan
+        apakah perlu script migrasi data one-off untuk transaksi historis
+        yang pernah di-edit qty-nya dengan harga_tinta>0. Diskusikan dengan
+        pemilik data sebelum deploy ke produksi yang sudah punya data nyata.
+
+  # ---------------------------------------------------------------------
+  - id: "3.2"
+    judul: "HPP weighted-average saat qty item naik (pakai hasil keluar_fifo)"
+    temuan_ref: [11]
+    severity: Medium
+    status: pending
+    depends_on: ["3.1"]
+    files:
+      edit:
+        - backend/app/transaksi/edit_item.py   # blok "qty NAIK", line ~79-90 -- pemanggilan keluar_fifo()
+    masalah: |
+      Saat qty item transaksi dinaikkan, `keluar_fifo(db, produk_id, selisih)`
+      dipanggil tapi nilai kembaliannya `(total_hpp, qty_berhasil)` DIBUANG --
+      `detail.harga_beli` tidak pernah diperbarui. recalculate_total_profit
+      (dipanggil setelahnya) memakai `harga_beli` LAMA, bukan HPP aktual dari
+      batch tambahan yang baru dipotong FIFO -- profit hasil recalculate salah
+      untuk kasus qty naik.
+    solusi:
+      - "Tangkap return value keluar_fifo(): (hpp_tambahan_total, qty_berhasil)."
+      - "Hitung HPP gabungan (weighted average): `harga_beli_baru = ((detail.harga_beli * qty_lama) + hpp_tambahan_total) / qty_baru`."
+      - "UPDATE transaksi_detail.harga_beli dengan nilai weighted-average tsb SEBELUM memanggil recalculate_total_profit (yang sekarang sudah pakai helper dari task 3.1)."
+      - "Tangani kasus qty_berhasil < selisih (stok kurang di tengah proses) -- pastikan tetap konsisten dengan validasi stok_tersedia yang sudah ada di baris sebelumnya (line ~86-90 di kode saat ini)."
+    acceptance_criteria:
+      - "Test baru: edit qty naik pada item dengan 2 batch FIFO harga beli BERBEDA -- harga_beli hasil di transaksi_detail harus weighted-average yang benar, bukan harga_beli batch pertama saja atau harga lama."
+      - "Profit hasil recalculate_total_profit setelah qty naik sesuai HPP aktual, bukan HPP lama."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/transaksi -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "No"
+      risk: Low
+      title_saran: "HPP weighted-average saat qty item naik (Temuan 11)"
+
+  # ---------------------------------------------------------------------
+  - id: "3.3"
+    judul: "Row locking (SELECT...FOR UPDATE) pada validasi & pemotongan stok"
+    temuan_ref: [6]
+    severity: High
+    status: pending
+    depends_on: ["1.4"]
+    files:
+      edit:
+        - backend/app/kasir/checkout_service.py       # line 50-72 (validasi stok), 98-125 (potong FIFO)
+        - backend/app/inventory/fifo_service.py         # keluar_fifo(), line 45-72
+        - backend/app/inventory/stock_adjustment.py     # line 47-59
+        - backend/app/transaksi/edit_item.py             # line 79-90 (blok qty naik)
+    masalah: |
+      Semua 4 alur ini membaca qty_sisa via SELECT biasa (tanpa
+      `SELECT ... FOR UPDATE`/`with_for_update()`), memvalidasi di level
+      aplikasi, lalu UPDATE/DELETE terpisah -- tidak ada row locking di
+      manapun. Dua request checkout/adjustment BERSAMAAN pada produk yang
+      sama bisa lolos validasi stok sebelum salah satunya UPDATE, menyebabkan
+      overselling/stok negatif. CHECK constraint qty_sisa>=0 (task 1.4) jadi
+      lapisan pertahanan TERAKHIR, task ini adalah lapisan pertahanan UTAMA
+      (mencegah race condition-nya sendiri, bukan cuma menangkap akibatnya).
+    solusi:
+      - "Di keempat lokasi: bungkus query SELECT batch/qty_sisa yang relevan dengan `SELECT ... FOR UPDATE` (SQLAlchemy Core: `.with_for_update()` pada statement, atau tambahkan `FOR UPDATE` di raw SQL text() yang sudah dipakai codebase ini)."
+      - "Pastikan locking terjadi DI DALAM transaction yang sama dengan UPDATE/DELETE pemotongan stok (satu db.execute session, belum db.commit() sebelum locking selesai dipakai)."
+      - "Untuk checkout_service.py, lock SEMUA batch dari SEMUA produk di keranjang SEBELUM mulai memotong FIFO produk manapun (hindari deadlock: lock berurutan berdasarkan produk_id/batch_id ASC, jangan berdasarkan urutan item di request)."
+      - "Karena CHECK qty_sisa>=0 (task 1.4) sekarang ada sebagai lapisan kedua, tambahkan penanganan IntegrityError eksplisit di keempat endpoint sebagai fallback jaga-jaga (defense in depth), bukan mengandalkan row lock saja."
+    acceptance_criteria:
+      - "Test concurrency baru (mis. pakai threading atau async gather 2 request checkout bersamaan pada produk stok=1 di test) -- HANYA SATU yang berhasil, yang lain gagal dengan InsufficientStockException, bukan keduanya berhasil dan stok jadi negatif."
+      - "Test yang sama untuk stock_adjustment dan edit_item qty naik."
+      - "Tidak ada deadlock terdeteksi saat checkout dengan >1 produk dalam keranjang yang sama diuji concurrent."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/kasir tests/backend/app/inventory tests/backend/app/transaksi -q"
+      catatan: "Test concurrency SEBAIKNYA jalan terhadap Postgres asli (task 2.1), row locking tidak teruji makna sebenarnya di sqlite in-memory single-connection."
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: High
+      breaking: "No"
+      risk: Medium
+      title_saran: "SELECT...FOR UPDATE pada validasi & pemotongan stok (Temuan 6)"

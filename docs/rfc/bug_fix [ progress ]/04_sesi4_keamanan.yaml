@@ -1,0 +1,191 @@
+# =============================================================================
+# 04_sesi4_keamanan.yaml — Sesi 4: Keamanan (Security Hardening)
+# =============================================================================
+# Rencana: "Addendum 29-36"  |  Lihat 00_index.yaml untuk urutan sesi lengkap.
+# Sesi ini tidak bergantung pada sesi 2/3 (beda area), tapi disarankan
+# dikerjakan setelah sesi 1 karena beberapa task menyentuh alur auth yang
+# sama-sama krusial. Aman dikerjakan paralel dengan sesi 2/3/5 oleh agent lain.
+
+sesi_id: sesi_4
+judul: "Keamanan (Security Hardening)"
+status: pending
+depends_on_sesi: []
+
+tasks:
+  # ---------------------------------------------------------------------
+  - id: "4.1"
+    judul: "Hapus default SECRET_KEY hardcoded, fail-fast jika env tidak diset"
+    temuan_ref: [7]
+    severity: High
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/auth/security.py   # line 8
+    masalah: |
+      `SECRET_KEY = os.environ.get("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7")`.
+      Jika env var tidak diset, SEMUA instance memakai key yang sama persis
+      dengan yang ada di repository publik -- siapa pun yang baca source code
+      bisa memalsukan JWT token untuk role apa pun.
+    solusi:
+      - "Hapus default hardcoded. Ganti dengan: baca SECRET_KEY dari env, jika kosong/None -> raise RuntimeError saat modul di-import (fail-fast, bukan gagal diam-diam saat request pertama masuk)."
+      - "Update docker-compose.yml: tambahkan SECRET_KEY dengan nilai dev-only yang JELAS ditandai 'GANTI DI PRODUKSI' (atau generate random tiap `docker compose up` lewat env_file terpisah yang di-gitignore -- pilih salah satu, dokumentasikan di README.md)."
+      - "Update README.md / docs/ARSITEKTUR.md bagian deployment: SECRET_KEY WAJIB diset eksplisit di produksi, sertakan cara generate (mis. `python -c \"import secrets; print(secrets.token_hex(32))\"`)."
+    acceptance_criteria:
+      - "Menjalankan aplikasi tanpa env var SECRET_KEY sama sekali -> proses gagal start dengan pesan error yang jelas, BUKAN start dengan key hardcoded diam-diam."
+      - "docker-compose.yml tetap bisa `docker compose up` langsung (sudah menyediakan SECRET_KEY dev-only di file, bukan hardcode di source Python)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/auth -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: High
+      breaking: "Yes"
+      risk: Low
+      title_saran: "Hapus default SECRET_KEY hardcoded, fail-fast (Temuan 7)"
+      catatan_breaking: "Breaking=Yes karena deployment yang belum set SECRET_KEY sekarang akan gagal start (ini justru tujuan fix-nya)."
+
+  # ---------------------------------------------------------------------
+  - id: "4.2"
+    judul: "Hapus default kredensial DATABASE_URL hardcoded"
+    temuan_ref: [25]
+    severity: Low
+    status: pending
+    depends_on: ["4.1"]
+    files:
+      edit:
+        - backend/app/database.py   # line 6-9
+    masalah: |
+      `DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://kasir:kasir@localhost:5432/kasir_pos")`
+      -- kredensial default hardcoded di source code.
+    solusi:
+      - "Terapkan pola fail-fast yang sama seperti task 4.1: jika DATABASE_URL tidak diset, raise error jelas saat startup, jangan fallback ke kredensial hardcoded."
+      - "Digabung satu task dengan 4.1 secara TEMA (sama-sama fail-fast config) tapi tetap file terpisah -- dikerjakan sebagai task sendiri karena beda file & beda tingkat urgensi (Low vs High), supaya PATCHLOG entry tetap granular per file yang disentuh."
+    acceptance_criteria:
+      - "Menjalankan aplikasi tanpa DATABASE_URL -> gagal start dengan pesan jelas."
+      - "docker-compose.yml sudah menyediakan DATABASE_URL (tidak berubah, sudah ada) sehingga docker compose up tetap jalan."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Low
+      breaking: "Yes"
+      risk: Low
+      title_saran: "Hapus default kredensial DATABASE_URL hardcoded (Temuan 25)"
+
+  # ---------------------------------------------------------------------
+  - id: "4.3"
+    judul: "Pindahkan state lockout login ke Redis + bersihkan entry lama"
+    temuan_ref: [8, 23]
+    severity: High
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/auth/lockout.py   # seluruh file, line 5, 15-54
+      dependency_baru:
+        - "redis (python client) -- tambahkan ke backend/requirements.txt"
+    masalah: |
+      Temuan 8 (High): `_lockout_store: dict[str, tuple[int, datetime]] = {}`
+      adalah variabel modul tanpa lock, diakses read-modify-write tanpa
+      sinkronisasi. docker-compose.yml sudah menyediakan service `redis` dan
+      REDIS_URL ke container backend, tapi TIDAK ADA satu pun kode yang
+      memakainya -- lockout tidak konsisten di deployment multi-worker
+      (umum di produksi uvicorn/gunicorn), sehingga lockout bisa dilewati.
+
+      Temuan 23 (Low, digabung ke task ini karena file & root cause sama):
+      entry percobaan gagal yang tidak pernah mencapai MAX_ATTEMPTS dan tidak
+      pernah diikuti login berhasil tersimpan PERMANEN di dict in-memory
+      selama proses berjalan (memory growth). Redis dengan TTL native
+      otomatis menyelesaikan masalah ini juga (key expire sendiri).
+    solusi:
+      - "Tambahkan `redis` ke backend/requirements.txt."
+      - "Ganti _lockout_store dict in-memory dengan Redis: simpan attempts sebagai counter dengan `INCR` (atomik) + `EXPIRE` di key yang sama saat attempt pertama; simpan locked_until sebagai key terpisah dengan TTL = LOCKOUT_SECONDS via `SETEX`."
+      - "get_lockout_status() dan record_failed_attempt() diubah untuk baca/tulis ke Redis client (pakai REDIS_URL dari env), bukan dict Python."
+      - "Karena Redis key expire otomatis (TTL), Temuan 23 (cleanup manual) otomatis tidak relevan lagi -- tidak perlu mekanisme cleanup terpisah."
+      - "Tangani kasus Redis tidak tersedia (connection error) -- putuskan: fail-open (izinkan login, log warning) atau fail-closed (tolak semua login)? Untuk sistem kasir toko, fail-open dengan log warning lebih masuk akal (downtime Redis tidak boleh mengunci semua kasir) -- dokumentasikan keputusan ini di komentar kode & docs/PRD.md §15 Known Issues jika relevan."
+    acceptance_criteria:
+      - "Lockout tetap konsisten saat diuji dengan 2+ worker/proses backend berjalan bersamaan (uji manual: jalankan uvicorn dengan --workers 2, coba lockout dari 2 koneksi berbeda)."
+      - "Entry attempts di Redis punya TTL, tidak pernah menumpuk permanen."
+      - "Login berhasil tetap me-reset counter (reset_attempts masih berfungsi, sekarang lewat Redis DEL)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/auth -q"
+      catatan: "Butuh Redis berjalan (docker-compose sudah menyediakan service redis) untuk test terhadap implementasi baru."
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: High
+      breaking: "No"
+      risk: Medium
+      title_saran: "Lockout login pakai Redis, hapus in-memory dict (Temuan 8, 23)"
+
+  # ---------------------------------------------------------------------
+  - id: "4.4"
+    judul: "Mekanisme invalidasi token/sesi saat password atau status user berubah"
+    temuan_ref: [17]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/auth/security.py    # create_access_token(), line 37-43
+        - backend/app/auth/session.py      # get_current_user() -- perlu validasi tambahan
+        - backend/app/users/crud.py         # update_user(), line 90-119
+      migrasi_kemungkinan_perlu:
+        - "Cek apakah tabel users sudah punya kolom untuk token_version/updated_at yang bisa dipakai sebagai stamp. Jika belum, buat migration baru migrations/0006_users_token_version.sql (nomor lanjutkan dari migration terakhir setelah task 1.4 menambah 0005)."
+    masalah: |
+      JWT hanya berisi `exp` berbasis waktu, tanpa jti/version stamp yang
+      bisa dicabut. Mengganti password/role/status user lain (update_user)
+      tidak mencabut token JWT lama milik user tsb -- token tetap valid
+      hingga expiry karena get_current_user tidak memvalidasi versi/jti
+      apa pun terhadap user record.
+    solusi:
+      - "Tambahkan kolom `token_version INT NOT NULL DEFAULT 0` (atau pakai updated_at yang sudah ada jika kolomnya ada) ke tabel users lewat migration baru."
+      - "create_access_token(): sertakan token_version user saat ini di payload JWT."
+      - "get_current_user(): setelah decode JWT, bandingkan token_version di payload dengan token_version TERKINI di database -- jika beda, tolak (401)."
+      - "update_user(): setiap kali password/role/status diubah, INCREMENT token_version user tsb di database -- otomatis mencabut semua token lama."
+    acceptance_criteria:
+      - "Test baru: login (dapat token A) -> ganti password user tsb via update_user -> token A ditolak (401) pada request berikutnya, meski belum expired."
+      - "User yang TIDAK diubah tetap bisa pakai token lama seperti biasa (tidak semua user ter-invalidate saat satu user diubah)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/auth tests/backend/app/users -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "No"
+      risk: Medium
+      title_saran: "Invalidasi token via token_version saat password/role/status berubah (Temuan 17)"
+
+  # ---------------------------------------------------------------------
+  - id: "4.5"
+    judul: "Jangan expose pesan exception internal mentah ke client"
+    temuan_ref: [18]
+    severity: Low
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/kasir/checkout_endpoint.py   # line 46-51, detail=f"Terjadi kesalahan internal: {e!s}"
+        - backend/app/inventory/import_excel.py     # line 105-108, 136-137
+        - backend/app/backup/restore_delete.py       # line 39-43, 68-74
+    masalah: |
+      Pesan exception mentah (termasuk kemungkinan stack trace/detail internal)
+      dikembalikan langsung ke client API di ketiga file ini -- berpotensi
+      membocorkan detail implementasi/struktur database ke pengguna akhir.
+    solusi:
+      - "Di ketiga lokasi: tangkap exception, `logging.exception(...)` (lihat task 7.6 untuk setup modul logging) untuk catat detail lengkap ke log server, lalu kembalikan HTTPException dengan pesan GENERIK ke client (mis. 'Terjadi kesalahan internal, silakan coba lagi atau hubungi admin')."
+      - "Task ini SEBAIKNYA dikerjakan SETELAH task 7.6 (setup modul logging) supaya bisa langsung pakai logging.exception() alih-alih print(). Jika dikerjakan lebih dulu, pakai print() sementara dan tandai TODO untuk diganti saat 7.6 selesai -- tapi urutan depends_on di bawah mengasumsikan 7.6 duluan."
+    acceptance_criteria:
+      - "Response error dari ketiga endpoint tidak lagi mengandung representasi exception Python mentah (str(e)) di field detail."
+      - "Detail exception lengkap tetap tercatat di server log untuk debugging."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/kasir tests/backend/app/inventory tests/backend/app/backup -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Low
+      breaking: "No"
+      risk: Low
+      title_saran: "Jangan expose exception internal mentah ke client (Temuan 18)"

@@ -70,6 +70,7 @@ def run_ml_job(key: str, compute_func: Callable, db_factory: Callable):
     Mendapatkan koneksi DB sendiri (karena thread terpisah).
     """
     db: Session = db_factory()
+    manager = None
     try:
         manager = MLCacheManager(db)
         manager.set_status(key, "training")
@@ -80,12 +81,19 @@ def run_ml_job(key: str, compute_func: Callable, db_factory: Callable):
         # Simpan ke cache
         manager.save_cache(key, result)
     except Exception as e:
-        print(f"ML Job failed for {key}: {e}")
-        # Kembalikan status ke ready agar bisa diretry nanti
-        try:
-            manager.set_status(key, "ready")
-        except:
-            pass
+        import logging
+        logging.exception(f"ML Job failed for {key}: {e}")
+        if manager is not None:
+            try:
+                manager.set_status(key, "error")
+            except:
+                pass
+        else:
+            try:
+                db.execute(text("UPDATE ml_cache SET status = 'error' WHERE key = :key"), {"key": key})
+                db.commit()
+            except:
+                pass
     finally:
         db.close()
 
@@ -130,9 +138,17 @@ def get_or_trigger_ml_task(
     is_training = (cache and cache["status"] == "training")
     
     if needs_refresh and not is_training:
-        manager.set_status(key, "training")
-        bg_tasks.add_task(run_ml_job, key, compute_func, db_factory)
-        is_training = True
+        result = db.execute(text("""
+            INSERT INTO ml_cache (key, status) VALUES (:key, 'training')
+            ON CONFLICT(key) DO UPDATE SET status = 'training'
+            WHERE ml_cache.status != 'training'
+            RETURNING key
+        """), {"key": key})
+        db.commit()
+        
+        if result.fetchone() is not None:
+            bg_tasks.add_task(run_ml_job, key, compute_func, db_factory)
+            is_training = True
 
     return {
         "data": cache["data"] if cache and cache["data"] else None,

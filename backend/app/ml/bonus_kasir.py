@@ -25,7 +25,7 @@ def compute_bonus_kasir(db: Session):
                AVG(total)            AS avg_trx,
                COUNT(*)              AS jml_trx
         FROM transaksi
-        WHERE date(tanggal) >= date('now', '-30 days')
+        WHERE date(tanggal) >= CURRENT_DATE - INTERVAL '30 days'
         GROUP BY kasir_id, kasir_nama
     """)).fetchall()
 
@@ -38,8 +38,8 @@ def compute_bonus_kasir(db: Session):
     # Ambil growth bulan ini vs bulan lalu
     rows_growth = db.execute(text("""
         SELECT kasir_id,
-               SUM(CASE WHEN strftime('%Y-%m', tanggal) = strftime('%Y-%m', 'now') THEN total ELSE 0 END) AS curr,
-               SUM(CASE WHEN strftime('%Y-%m', tanggal) = strftime('%Y-%m', date('now', 'start of month', '-1 month')) THEN total ELSE 0 END) AS prev
+               SUM(CASE WHEN to_char(tanggal, 'YYYY-MM') = to_char('now', 'YYYY-MM') THEN total ELSE 0 END) AS curr,
+               SUM(CASE WHEN to_char(tanggal, 'YYYY-MM') = to_char(date('now', 'start of month', '-1 month', 'YYYY-MM')) THEN total ELSE 0 END) AS prev
         FROM transaksi
         GROUP BY kasir_id
     """)).fetchall()

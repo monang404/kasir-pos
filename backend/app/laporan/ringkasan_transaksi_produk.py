@@ -18,7 +18,7 @@ def build_date_filter(
 ):
     """Helper to build WHERE clause for dates."""
     if mode == "bulan" and bulan:
-        return f"strftime('%Y-%m', {column}) = :bulan", {"bulan": bulan}
+        return f"to_char({column}, 'YYYY-MM') = :bulan", {"bulan": bulan}
     elif mode == "rentang" and start_date and end_date:
         return f"date({column}) >= :start_date AND date({column}) <= :end_date", {"start_date": start_date, "end_date": end_date}
     # default fallback to no filter, or maybe current month?
@@ -133,12 +133,12 @@ def get_laporan_produk(
         text(f"""
             SELECT p.kode, p.nama, 
                    SUM(td.qty) as qty_terjual,
-                   SUM((td.harga_jual + td.harga_tinta) * td.qty) as omzet,
-                   SUM(((td.harga_jual + td.harga_tinta) - td.harga_beli) * td.qty) as profit
+                   SUM(td.harga_jual * td.qty) as omzet,
+                   SUM((td.harga_jual - td.harga_beli - td.harga_tinta) * td.qty) as profit
             FROM transaksi_detail td
             JOIN transaksi t ON td.transaksi_id = t.id
             JOIN produk p ON td.produk_id = p.id
-            WHERE {where_trx} AND td.is_bonus = 0
+            WHERE {where_trx} AND td.is_bonus = FALSE
             GROUP BY p.id, p.kode, p.nama
             ORDER BY qty_terjual DESC
         """),

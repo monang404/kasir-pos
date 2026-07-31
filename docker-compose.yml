@@ -28,10 +28,12 @@ services:
     working_dir: /app
     volumes:
       - ./backend:/app
+      - kasir_pos_backups:/app/backups
     environment:
       DATABASE_URL: postgresql+psycopg2://kasir:kasir@db:5432/kasir_pos
       REDIS_URL: redis://redis:6379/0
-      SESSION_TIMEOUT: "3600"
+      SESSION_TIMEOUT: "60"
+      SECRET_KEY: "supersecret"
     ports:
       - "8000:8000"
     depends_on:
@@ -55,3 +57,4 @@ services:
 
 volumes:
   kasir_pos_db_data:
+  kasir_pos_backups:

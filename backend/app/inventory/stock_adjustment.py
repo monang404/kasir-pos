@@ -9,6 +9,7 @@ from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
 from app.inventory.fifo_service import keluar_fifo, tambah_stok
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/inventory/adjustment", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")
@@ -43,6 +44,12 @@ def stock_adjustment(
         info_audit = f"Penyesuaian (+) {req.qty} qty. Alasan: {alasan_bersih}"
     
     elif req.tipe == '-':
+        # Lock row produk_batch
+        db.execute(
+            text("SELECT id FROM produk_batch WHERE produk_id = :pid ORDER BY tanggal_masuk ASC FOR UPDATE"),
+            {"pid": produk.id}
+        ).fetchall()
+        
         # Validasi stok dulu
         stok_total = db.execute(
             text("SELECT COALESCE(SUM(qty_sisa), 0) FROM produk_batch WHERE produk_id = :pid"),
@@ -56,20 +63,16 @@ def stock_adjustment(
             )
             
         # Kurangi pakai FIFO
-        keluar_fifo(db, produk.id, req.qty)
+        total_hpp, qty_berhasil = keluar_fifo(db, produk.id, req.qty)
+        if qty_berhasil < req.qty:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Gagal: Stok tidak cukup saat pemotongan (race condition). Hanya berhasil dipotong {qty_berhasil} dari {req.qty}."
+            )
         info_audit = f"Penyesuaian (-) {req.qty} qty. Alasan: {alasan_bersih}"
     
     # Catat ke activity log
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'ADJUSTMENT', 'inventory', :kode, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kode": produk.kode, "info": info_audit
-        }
-    )
+    log_action(db, user, 'ADJUSTMENT', 'inventory', produk.kode, info_audit)
     
     db.commit()
     return {"message": "Stock adjustment berhasil dilakukan", "info": info_audit}

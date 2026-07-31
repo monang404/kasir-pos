@@ -1,0 +1,241 @@
+# =============================================================================
+# 02_sesi2_migrasi_tanggal_postgres.yaml — Sesi 2: Migrasi Fungsi Tanggal
+# =============================================================================
+# Rencana: "Addendum 29-36"  |  Lihat 00_index.yaml untuk urutan sesi lengkap.
+# Semua task di sesi ini menangani Temuan 2: 43+ lokasi query di 13 file
+# memakai strftime()/date('now', ...) -- fungsi eksklusif SQLite, tidak ada
+# di PostgreSQL. PRASYARAT: task 1.5 (is_bonus IS FALSE) HARUS sudah selesai
+# & di-commit dulu karena menyentuh baris WHERE clause yang sama di beberapa
+# file yang sama (export_xlsx.py, ringkasan_transaksi_produk.py, prediksi_*).
+
+sesi_id: sesi_2
+judul: "Migrasi Fungsi Tanggal SQLite -> PostgreSQL (Temuan 2)"
+status: done
+depends_on_sesi: ["sesi_1"]
+
+referensi_konversi_sintaks:
+  # Cheat-sheet dipakai berulang di semua task sesi ini.
+  "strftime('%Y-%m', kolom) = :bulan": "to_char(kolom, 'YYYY-MM') = :bulan"
+  "date(kolom) >= :start_date": "kolom::date >= :start_date  -- atau CAST(kolom AS DATE)"
+  "date('now', '-N days')": "(CURRENT_TIMESTAMP - INTERVAL 'N days')  -- atau CURRENT_DATE - INTERVAL 'N days' tergantung kolom perlu date/timestamp"
+  "date('now', '-30 days') sampai date('now')": "pertimbangkan date_trunc() jika butuh batas awal/akhir periode yang presisi (mis. awal bulan)"
+  catatan: >
+    Pakai to_char/date_trunc/operator interval NATIVE PostgreSQL sesuai
+    solusi di laporan audit -- JANGAN pakai extension tambahan. Uji setiap
+    query hasil konversi manual dengan psql terhadap docker compose db
+    sebelum menganggap task selesai (lihat status_test_suite di 00_index.yaml).
+
+tasks:
+  # ---------------------------------------------------------------------
+  - id: "2.1"
+    judul: "Ubah test engine dari sqlite in-memory ke PostgreSQL + bersihkan duplikat folder test lama"
+    temuan_ref: [2]
+    severity: Critical
+    status: done
+    depends_on: []
+    prioritas_alasan: >
+      Ini PRASYARAT untuk seluruh sesi 2. Tanpa ini, task 2.2-2.6 bisa
+      "lulus pytest" padahal query masih pakai sintaks SQLite yang salah --
+      persis pola kegagalan yang sudah terjadi sebelumnya (lihat Temuan 2:
+      "Test suite ... menjalankan sqlite:///:memory: sehingga bug ini tidak
+      terdeteksi sebelum deploy").
+    files:
+      edit:
+        - tests/backend/app/inventory/test_fifo.py           # engine = create_engine("sqlite:///:memory:")
+        - tests/backend/app/kasir/test_checkout_service.py    # idem
+        - tests/backend/app/transaksi/test_retur_stok.py      # idem
+      hapus:
+        - backend/app/inventory/tests/          # duplikat lokasi lama, sudah tidak dikoleksi CI (Temuan 29 fixed), isinya identik dgn tests/backend/app/inventory/
+        - backend/app/kasir/tests/                # idem
+        - backend/app/transaksi/tests/            # idem
+    masalah: |
+      Ketiga file test bisnis inti memakai `create_engine("sqlite:///:memory:")`
+      langsung, bukan terhubung ke instance PostgreSQL. SQLite lebih longgar
+      soal tipe data & fungsi (strftime/date native SQLite, tidak enforce
+      boolean=integer dengan ketat, dst.) -- sehingga seluruh bug PostgreSQL-
+      spesifik di Temuan 2, 3, dan sebagian Temuan 1 LOLOS dari test meskipun
+      test-case-nya sudah ditulis dengan benar.
+
+      Terpisah dari itu, ditemukan folder duplikat backend/app/{inventory,
+      kasir,transaksi}/tests/ yang isinya sama persis dengan
+      tests/backend/app/{inventory,kasir,transaksi}/ (lokasi baru sesuai
+      AI_CONTEXT.md §2). Folder lama ini peninggalan sebelum konsolidasi
+      struktur test -- membingungkan kalau dibiarkan (dev/agent bisa salah
+      edit test di lokasi yang tidak dikoleksi CI).
+    solusi:
+      - "Sediakan cara menjalankan test terhadap PostgreSQL asli: opsi A (disarankan) pakai testcontainers-python untuk spin up Postgres sekali per test session; opsi B (lebih sederhana, tanpa dependency baru) baca DATABASE_URL dari env var TEST_DATABASE_URL yang mengarah ke service `db` di docker-compose.yml, dan jalankan test di dalam container/CI yang sudah punya akses ke db tsb."
+      - "Update .github/workflows/ci.yml step 'Test (pytest)' agar menyediakan service Postgres (uses: services: postgres:16) dan set TEST_DATABASE_URL sebelum step pytest, JIKA memilih opsi B."
+      - "Ganti `create_engine(\"sqlite:///:memory:\")` di ketiga file test dengan engine yang connect ke Postgres test tsb; pastikan tiap test membungkus transaksi dan rollback di teardown (bukan buat/drop schema tiap test, supaya cepat)."
+      - "Hapus 3 folder duplikat backend/app/{inventory,kasir,transaksi}/tests/ setelah dipastikan isinya identik / sudah tidak dipakai oleh apa pun (grep referensinya dulu)."
+      - "Jalankan ulang SEMUA task yang sudah 'done' sebelumnya (1.1-1.5, jika sudah selesai) dengan test suite baru ini untuk memastikan tidak ada regresi yang sebelumnya tersembunyi oleh sqlite."
+    acceptance_criteria:
+      - "pytest tests/backend berjalan terhadap PostgreSQL asli, bukan sqlite in-memory (verifikasi: masukkan query yang sengaja pakai strftime() ke salah satu test sementara, konfirmasi test tsb GAGAL -- baru hapus lagi)."
+      - "CI (.github/workflows/ci.yml) hijau dengan setup Postgres service baru."
+      - "Folder backend/app/{inventory,kasir,transaksi}/tests/ sudah tidak ada."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend -q"
+    patchlog:
+      type: Fix
+      area: Testing
+      priority: Critical
+      breaking: "No"
+      risk: Medium
+      title_saran: "Test bisnis inti jalan terhadap PostgreSQL, hapus duplikat folder test lama (Temuan 2 prasyarat)"
+
+  # ---------------------------------------------------------------------
+  - id: "2.2"
+    judul: "build_date_filter() (helper laporan) -> sintaks tanggal PostgreSQL"
+    temuan_ref: [2]
+    severity: Critical
+    status: done
+    depends_on: ["2.1"]
+    files:
+      edit:
+        - backend/app/laporan/ringkasan_transaksi_produk.py  # def build_date_filter(), line 12-26 -- helper dipakai 3 endpoint di file yang sama
+      dampak_otomatis_via_import:
+        - backend/app/laporan/export_xlsx.py            # import build_date_filter, dipakai line ~118
+        - backend/app/laporan/pelanggan_stok_pengeluaran.py  # import build_date_filter
+    masalah: |
+      `build_date_filter()` mengembalikan `strftime('%Y-%m', {column}) = :bulan`
+      untuk mode "bulan" dan `date({column}) >= :start_date AND date({column})
+      <= :end_date` untuk mode "rentang" -- keduanya sintaks SQLite murni.
+      Helper ini dipakai oleh 3 endpoint laporan di file yang sama plus
+      di-import oleh export_xlsx.py dan pelanggan_stok_pengeluaran.py --
+      memperbaiki SATU fungsi ini otomatis memperbaiki seluruh pemakainya.
+    solusi:
+      - "Ganti body build_date_filter(): mode 'bulan' -> `to_char({column}, 'YYYY-MM') = :bulan`; mode 'rentang' -> `{column}::date >= :start_date AND {column}::date <= :end_date`."
+      - "Karena ini fungsi yang dipakai lintas file, JALANKAN test untuk ketiga file pemakai (laporan/ringkasan, export_xlsx, pelanggan_stok_pengeluaran) dalam satu task ini, bukan cuma file tempat fungsi didefinisikan."
+    acceptance_criteria:
+      - "Ketiga endpoint yang memakai build_date_filter() (laporan ringkasan/transaksi/produk, export xlsx, laporan pelanggan/stok/pengeluaran) berhasil difilter mode bulan maupun rentang tanggal terhadap Postgres asli."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/laporan -q"
+      catatan: "Buat folder test jika belum ada, mirror backend/app/laporan/."
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "No"
+      risk: Low
+      title_saran: "build_date_filter() pakai sintaks PostgreSQL (Temuan 2, laporan)"
+
+  # ---------------------------------------------------------------------
+  - id: "2.3"
+    judul: "Fungsi tanggal SQLite di modul Dashboard"
+    temuan_ref: [2]
+    severity: Critical
+    status: done
+    depends_on: ["2.1"]
+    files:
+      edit:
+        - backend/app/dashboard/stats.py    # line 35, 44, 69, 75, 90, 96
+        - backend/app/dashboard/charts.py   # line 31-45, 64-76, 101-105
+    masalah: |
+      Query stat card & chart dashboard (omzet bulan berjalan, growth,
+      7 hari terakhir, dll.) memakai strftime()/date('now', ...) di 9 lokasi
+      berbeda -- seluruh halaman Dashboard tidak bisa menampilkan data sama
+      sekali di Postgres asli.
+    solusi:
+      - "Konversi tiap lokasi sesuai referensi_konversi_sintaks di atas file ini. Perhatikan lokasi yang membandingkan RENTANG (mis. '7 hari terakhir', 'bulan ini vs bulan lalu') -- pastikan batas awal/akhir tetap benar setelah konversi ke operator interval Postgres (mis. `CURRENT_TIMESTAMP - INTERVAL '7 days'`)."
+      - "Task ini TIDAK menangani Temuan 36 (datetime.now() naive vs UTC) di file yang sama -- itu task 7.10 terpisah, sengaja dipisah karena beda root cause (satu soal dialect SQL, satu soal timezone Python). Jangan gabungkan supaya diff tetap mudah direview."
+    acceptance_criteria:
+      - "Semua endpoint dashboard (stat card, growth card, chart) mengembalikan data benar terhadap Postgres asli, diverifikasi manual dengan data seed lintas bulan."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/dashboard -q"
+      catatan: "Buat folder test jika belum ada."
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "No"
+      risk: Low
+      title_saran: "Sintaks tanggal PostgreSQL di dashboard/stats.py & charts.py (Temuan 2)"
+
+  # ---------------------------------------------------------------------
+  - id: "2.4"
+    judul: "Fungsi tanggal SQLite di transaksi/pengeluaran/activity_log"
+    temuan_ref: [2]
+    severity: Critical
+    status: done
+    depends_on: ["2.1"]
+    files:
+      edit:
+        - backend/app/transaksi/list_transaksi.py   # line 28
+        - backend/app/pengeluaran/crud.py            # line 50
+        - backend/app/activity_log/list_log.py       # line 34-42, 50, 55, 60, 100, 104
+    masalah: |
+      Filter tanggal di daftar riwayat transaksi, daftar pengeluaran, dan
+      activity log memakai sintaks SQLite -- ketiga halaman ini tidak bisa
+      difilter per tanggal/bulan di Postgres asli.
+    solusi:
+      - "Konversi tiap lokasi sesuai referensi_konversi_sintaks. activity_log/list_log.py punya paling banyak lokasi (7 titik) -- kerjakan sekaligus dalam satu pass supaya tidak ada yang terlewat, bukan berkali-kali edit file yang sama."
+    acceptance_criteria:
+      - "Filter tanggal di halaman Transaksi, Pengeluaran, dan Activity Log berfungsi benar terhadap Postgres asli."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/transaksi tests/backend/app/pengeluaran tests/backend/app/activity_log -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "No"
+      risk: Low
+      title_saran: "Sintaks tanggal PostgreSQL di transaksi/pengeluaran/activity_log (Temuan 2)"
+
+  # ---------------------------------------------------------------------
+  - id: "2.5"
+    judul: "Fungsi tanggal SQLite di modul ML: prediksi stok/demand/omzet"
+    temuan_ref: [2]
+    severity: Critical
+    status: done
+    depends_on: ["2.1", "1.5"]
+    files:
+      edit:
+        - backend/app/ml/prediksi_stok.py     # line 28-33 (juga overlap Temuan 3, sudah selesai di task 1.5)
+        - backend/app/ml/prediksi_demand.py   # line 21, 29 (idem)
+        - backend/app/ml/prediksi_omzet.py    # line 52, 54
+    masalah: |
+      Query pengambilan histori penjualan untuk model prediksi stok, demand,
+      dan omzet memakai date('now', '-N days') SQLite. Endpoint /ml/prediksi-*
+      tidak bisa mengambil data histori sama sekali di Postgres asli.
+    solusi:
+      - "Konversi sesuai referensi_konversi_sintaks. Karena prediksi_stok.py dan prediksi_demand.py juga sudah disentuh task 1.5 (is_bonus IS FALSE) di WHERE clause yang sama, pastikan diff task ini dibuat SETELAH 1.5 di-commit untuk menghindari merge conflict pada baris yang sama."
+    acceptance_criteria:
+      - "Endpoint /ml/prediksi-stok, /ml/prediksi-demand, /ml/prediksi-omzet berhasil mengambil data histori terhadap Postgres asli tanpa error function does not exist."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/ml -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "No"
+      risk: Low
+      title_saran: "Sintaks tanggal PostgreSQL di ml/prediksi_stok, prediksi_demand, prediksi_omzet (Temuan 2)"
+
+  # ---------------------------------------------------------------------
+  - id: "2.6"
+    judul: "Fungsi tanggal SQLite di modul ML: promo_recommendation & bonus_kasir"
+    temuan_ref: [2]
+    severity: Critical
+    status: done
+    depends_on: ["2.1", "1.5"]
+    files:
+      edit:
+        - backend/app/ml/promo_recommendation.py  # line 25, 33, 41, 91 (juga overlap Temuan 3, sudah selesai di 1.5)
+        - backend/app/ml/bonus_kasir.py            # line 28, 41-42
+    masalah: |
+      Sama seperti 2.5, untuk endpoint rekomendasi promo/bundling dan
+      perhitungan bonus kasir. Dipisah jadi task sendiri (bukan digabung ke
+      2.5) karena promo_recommendation.py punya 4 lokasi terpisah -- kalau
+      digabung dengan 2.5 task jadi terlalu besar (5 file sekaligus).
+    solusi:
+      - "Konversi sesuai referensi_konversi_sintaks di keempat lokasi promo_recommendation.py dan dua lokasi bonus_kasir.py. Sama seperti 2.5, commit SETELAH task 1.5 untuk menghindari conflict di baris WHERE is_bonus yang sama pada promo_recommendation.py."
+    acceptance_criteria:
+      - "Endpoint /ml/promo-recommendation dan perhitungan bonus kasir berhasil terhadap Postgres asli tanpa error function does not exist."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/ml -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "No"
+      risk: Low
+      title_saran: "Sintaks tanggal PostgreSQL di ml/promo_recommendation & bonus_kasir (Temuan 2)"

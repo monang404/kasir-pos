@@ -146,10 +146,12 @@ const LaporanPage: React.FC = () => {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-        <button onClick={handleExport}
-          style={{ padding: '0.5rem 1.5rem', backgroundColor: '#22c55e', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-          ⬇ Ekspor {TABS.find(t => t.id === activeTab)?.label} ke Excel
-        </button>
+        {activeTab !== 'ringkasan' && (
+          <button onClick={handleExport}
+            style={{ padding: '0.5rem 1.5rem', backgroundColor: '#22c55e', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            ⬇ Ekspor {TABS.find(t => t.id === activeTab)?.label} ke Excel
+          </button>
+        )}
       </div>
 
       {/* TAB CONTENT */}

@@ -18,8 +18,8 @@ def tambah_stok(db: Session, produk_id: int, qty: int, harga_beli: float, tangga
         
     result = db.execute(
         text("""
-            INSERT INTO produk_batch (produk_id, qty_sisa, harga_beli, tanggal_masuk)
-            VALUES (:pid, :qty, :hb, :tgl)
+            INSERT INTO produk_batch (produk_id, qty_masuk, qty_sisa, harga_beli, tanggal_masuk)
+            VALUES (:pid, :qty, :qty, :hb, :tgl)
             RETURNING id
         """),
         {"pid": produk_id, "qty": qty, "hb": harga_beli, "tgl": tanggal_masuk}
@@ -43,7 +43,7 @@ def keluar_fifo(db: Session, produk_id: int, qty: int) -> tuple[float, int]:
         return 0.0, 0
         
     batches = db.execute(
-        text("SELECT id, qty_sisa, harga_beli FROM produk_batch WHERE produk_id = :pid AND qty_sisa > 0 ORDER BY tanggal_masuk ASC"),
+        text("SELECT id, qty_sisa, harga_beli FROM produk_batch WHERE produk_id = :pid AND qty_sisa > 0 ORDER BY tanggal_masuk ASC FOR UPDATE"),
         {"pid": produk_id}
     ).fetchall()
     

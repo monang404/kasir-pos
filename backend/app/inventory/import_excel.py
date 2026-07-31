@@ -4,10 +4,12 @@ import openpyxl
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/inventory/import", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")
@@ -47,11 +49,6 @@ async def import_excel(
         dilewati = 0
         errors = []
         
-        # Cache existing kode
-        existing_kodes = {
-            row.kode for row in db.execute(text("SELECT kode FROM produk")).fetchall()
-        }
-        
         for row_idx, row in enumerate(sheet.iter_rows(min_row=header_row + 1, values_only=True), header_row + 1):
             if not any(row): continue # Skip empty row
             
@@ -86,39 +83,33 @@ async def import_excel(
                     dilewati += 1
                     continue
                     
-                if kode in existing_kodes:
+                # Insert with savepoint
+                try:
+                    with db.begin_nested():
+                        db.execute(
+                            text("""
+                                INSERT INTO produk (kode, nama, harga_beli, harga_jual)
+                                VALUES (:kode, :nama, :hb, :hj)
+                            """),
+                            {"kode": kode, "nama": nama, "hb": hb, "hj": hj}
+                        )
+                except IntegrityError:
+                    errors.append(f"Baris {row_idx}: Kode '{kode}' sudah ada atau melanggar constraint")
                     dilewati += 1
                     continue
-                    
-                # Insert
-                db.execute(
-                    text("""
-                        INSERT INTO produk (kode, nama, harga_beli, harga_jual)
-                        VALUES (:kode, :nama, :hb, :hj)
-                    """),
-                    {"kode": kode, "nama": nama, "hb": hb, "hj": hj}
-                )
                 
-                existing_kodes.add(kode)
                 berhasil += 1
                 
             except Exception as e:
-                errors.append(f"Baris {row_idx}: Error parsing data - {e!s}")
+                import logging
+                logging.exception(e)
+                errors.append(f"Baris {row_idx}: Error parsing data. Silakan cek format file.")
                 dilewati += 1
                 continue
                 
         # Activity log
         if berhasil > 0:
-            db.execute(
-                text("""
-                    INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-                    VALUES (:uid, :uname, :role, 'IMPORT', 'inventory', 'EXCEL', :info)
-                """),
-                {
-                    "uid": user["id"], "uname": user["username"], "role": user["role"],
-                    "info": f"Import Excel berhasil {berhasil} produk"
-                }
-            )
+            log_action(db, user, 'IMPORT', 'inventory', 'EXCEL', f"Import Excel berhasil {berhasil} produk")
             
         db.commit()
         
@@ -134,4 +125,6 @@ async def import_excel(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gagal memproses file: {e!s}")
+        import logging
+        logging.exception(e)
+        raise HTTPException(status_code=500, detail="Gagal memproses file. Silakan coba lagi.")

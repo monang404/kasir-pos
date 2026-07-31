@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -12,7 +12,7 @@ check_access = RequireModule("dashboard")
 
 @router.get("/charts", dependencies=[Depends(check_access)])
 def get_dashboard_charts(db: Session = Depends(get_db)):
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     
     # ─── 1. Chart 12 Bulan Terakhir ───
     # Generate 12 months list (from 11 months ago up to current)
@@ -28,20 +28,20 @@ def get_dashboard_charts(db: Session = Depends(get_db)):
     
     # Query transaksi per month
     trx_monthly = db.execute(text("""
-        SELECT strftime('%Y-%m', tanggal) as bulan, 
+        SELECT to_char(tanggal, 'YYYY-MM') as bulan, 
                SUM(total) as omzet, SUM(profit) as laba_kotor
         FROM transaksi
-        WHERE tanggal >= date('now', 'start of month', '-11 months')
-        GROUP BY strftime('%Y-%m', tanggal)
+        WHERE tanggal >= date_trunc('month', CURRENT_DATE) - INTERVAL '11 months'
+        GROUP BY to_char(tanggal, 'YYYY-MM')
     """)).fetchall()
     
     # Query pengeluaran per month
     peng_monthly = db.execute(text("""
-        SELECT strftime('%Y-%m', tanggal) as bulan, 
+        SELECT to_char(tanggal, 'YYYY-MM') as bulan, 
                SUM(jumlah) as pengeluaran
         FROM pengeluaran
-        WHERE tanggal >= date('now', 'start of month', '-11 months')
-        GROUP BY strftime('%Y-%m', tanggal)
+        WHERE tanggal >= date_trunc('month', CURRENT_DATE) - INTERVAL '11 months'
+        GROUP BY to_char(tanggal, 'YYYY-MM')
     """)).fetchall()
 
     trx_dict = {r.bulan: {"omzet": r.omzet, "laba_kotor": r.laba_kotor} for r in trx_monthly}
@@ -68,11 +68,11 @@ def get_dashboard_charts(db: Session = Depends(get_db)):
             COALESCE(SUM(t.profit), 0) as laba_kotor
         FROM transaksi t
         JOIN transaksi_detail td ON t.id = td.transaksi_id
-        WHERE strftime('%Y-%m', t.tanggal) = :bulan
+        WHERE to_char(t.tanggal, 'YYYY-MM') = :bulan
     """), {"bulan": curr_month_str}).fetchone()
     
     peng_curr = db.execute(text("""
-        SELECT COALESCE(SUM(jumlah), 0) FROM pengeluaran WHERE strftime('%Y-%m', tanggal) = :bulan
+        SELECT COALESCE(SUM(jumlah), 0) FROM pengeluaran WHERE to_char(tanggal, 'YYYY-MM') = :bulan
     """), {"bulan": curr_month_str}).scalar() or 0
 
     hpp = float(komp.hpp) if komp else 0
@@ -101,7 +101,7 @@ def get_dashboard_charts(db: Session = Depends(get_db)):
     trx_7_days = db.execute(text("""
         SELECT date(tanggal) as tgl, SUM(total) as omzet
         FROM transaksi
-        WHERE date(tanggal) >= date('now', '-6 days')
+        WHERE date(tanggal) >= CURRENT_DATE - INTERVAL '6 days'
         GROUP BY date(tanggal)
     """)).fetchall()
 

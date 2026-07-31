@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/inventory/batch", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")
@@ -76,32 +77,26 @@ def tambah_batch(
 
     result = db.execute(
         text("""
-            INSERT INTO produk_batch (produk_id, qty_sisa, harga_beli, tanggal_masuk)
-            VALUES (:pid, :qty, :hb, :tgl)
+            INSERT INTO produk_batch (produk_id, qty_masuk, qty_sisa, harga_beli, tanggal_masuk)
+            VALUES (:pid, :qty, :qty, :hb, :tgl)
             RETURNING id
         """),
         {"pid": req.produk_id, "qty": req.qty, "hb": req.harga_beli, "tgl": tgl}
     ).fetchone()
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'TAMBAH_BATCH', 'inventory', :kode, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kode": produk.kode,
-            "info": f"Tambah batch {req.qty} qty @ Rp {req.harga_beli:,.0f} untuk {produk.nama}"
-        }
-    )
+    log_action(db, user, 'TAMBAH_BATCH', 'inventory', str(produk.kode), f"Tambah batch {req.qty} qty @ Rp {req.harga_beli:,.0f} untuk {produk.nama}")
 
     db.commit()
     return {"message": "Batch berhasil ditambahkan", "batch_id": result.id}
 
 
+class HapusBatchRequest(BaseModel):
+    alasan: str | None = Field(None, min_length=5)
+
 @router.delete("/{batch_id}", dependencies=[Depends(check_inventory_access)])
 def hapus_batch(
     batch_id: int,
+    req: HapusBatchRequest = Depends(),
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ):
@@ -121,9 +116,11 @@ def hapus_batch(
 
     # Audit berbeda jika batch masih memiliki sisa stok
     if batch.qty_sisa > 0:
+        if not req.alasan:
+            raise HTTPException(status_code=422, detail="Alasan wajib diisi jika qty_sisa > 0")
         info = (
             f"Hapus batch (stok tersisa {batch.qty_sisa} qty) "
-            f"@ Rp {batch.harga_beli:,.0f} dari {batch.nama} — dikonfirmasi operator"
+            f"@ Rp {batch.harga_beli:,.0f} dari {batch.nama} — Alasan: {req.alasan}"
         )
     else:
         info = f"Hapus batch kosong (qty_sisa=0) dari {batch.nama}"
@@ -133,16 +130,7 @@ def hapus_batch(
         {"bid": batch_id}
     )
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'HAPUS_BATCH', 'inventory', :kode, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kode": batch.kode, "info": info
-        }
-    )
+    log_action(db, user, 'HAPUS_BATCH', 'inventory', str(batch.kode), info)
 
     db.commit()
     return {"message": "Batch berhasil dihapus", "qty_terhapus": batch.qty_sisa}

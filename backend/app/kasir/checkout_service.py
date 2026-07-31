@@ -1,22 +1,26 @@
 import uuid
 from datetime import datetime, timezone
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
+from app.kasir.pricing import hitung_total_dan_profit
+from app.activity_log.logger import log_action
 
 
 class CheckoutItem(BaseModel):
     produk_id: int
-    qty: int
+    qty: int = Field(..., gt=0)
     harga_jual: float
-    diskon: float = 0
-    harga_tinta: float = 0
+    diskon: float = Field(default=0, ge=0)
+    harga_tinta: float = Field(default=0, ge=0)
     warna: str = ""
     is_bonus: bool = False
 
 class CheckoutRequest(BaseModel):
-    pelanggan_id: int = None
+    pelanggan_id: int | None = None
     metode_bayar: str = "Tunai"
     uang_bayar: float
     items: list[CheckoutItem]
@@ -47,16 +51,25 @@ def proses_checkout(db: Session, req: CheckoutRequest, kasir_id: int, kasir_nama
     placeholders = ", ".join(f":p_{i}" for i in range(len(produk_ids)))
     params = {f"p_{i}": pid for i, pid in enumerate(produk_ids)}
     
+    # Lock row produk_batch untuk menghindari overselling (race condition)
+    lock_query = f"""
+        SELECT id FROM produk_batch 
+        WHERE produk_id IN ({placeholders}) 
+        ORDER BY produk_id ASC, tanggal_masuk ASC 
+        FOR UPDATE
+    """
+    db.execute(text(lock_query), params).fetchall()
+    
     # Ambil stok total per produk
     stok_query = f"""
-        SELECT p.id, p.nama, COALESCE(SUM(pb.qty_sisa), 0) as stok_total
+        SELECT p.id, p.nama, p.harga_jual, COALESCE(SUM(pb.qty_sisa), 0) as stok_total
         FROM produk p
         LEFT JOIN produk_batch pb ON p.id = pb.produk_id
         WHERE p.id IN ({placeholders})
-        GROUP BY p.id, p.nama
+        GROUP BY p.id, p.nama, p.harga_jual
     """
     stok_result = db.execute(text(stok_query), params).fetchall()
-    stok_map = {row.id: {"nama": row.nama, "stok": int(row.stok_total)} for row in stok_result}
+    stok_map = {row.id: {"nama": row.nama, "stok": int(row.stok_total), "harga_jual": float(row.harga_jual)} for row in stok_result}
     
     # 2. Validasi stok sebelum dipotong (Fail-fast)
     # Akumulasi qty per produk_id (karena bisa saja item sama ada yang non-bonus dan bonus beda warna/baris)
@@ -67,14 +80,31 @@ def proses_checkout(db: Session, req: CheckoutRequest, kasir_id: int, kasir_nama
     for pid, qty in qty_needed.items():
         if pid not in stok_map:
             raise ValueError(f"Produk ID {pid} tidak ditemukan")
+        if qty <= 0:
+            raise ValueError(f"Kuantitas produk {pid} harus lebih dari 0")
         if qty > stok_map[pid]["stok"]:
             raise InsufficientStockException(pid, stok_map[pid]["nama"], qty, stok_map[pid]["stok"])
             
+    # Validasi harga jual dan diskon
+    for item in req.items:
+        if item.qty <= 0:
+            raise ValueError(f"Kuantitas item produk {item.produk_id} harus lebih dari 0")
+        if item.diskon < 0:
+            raise ValueError(f"Diskon tidak boleh negatif untuk produk {item.produk_id}")
+        if item.harga_tinta < 0:
+            raise ValueError(f"Harga tinta tidak boleh negatif untuk produk {item.produk_id}")
+        if item.harga_jual < 0:
+            raise ValueError(f"Harga jual tidak boleh negatif untuk produk {item.produk_id}")
+            
+        if not item.is_bonus:
+            harga_acuan = stok_map[item.produk_id]["harga_jual"]
+            # Validasi toleransi: harga_jual + diskon harus sama dengan harga acuan
+            if abs((item.harga_jual + item.diskon) - harga_acuan) > 0.01:
+                raise ValueError(f"Harga jual tidak valid untuk produk {item.produk_id}. Harga acuan: {harga_acuan}, Harga jual + diskon: {item.harga_jual + item.diskon}")
+            
     # 3. Hitung total dan lakukan potong FIFO per batch dalam satu transaksi
     total_omzet = 0.0
-    total_profit = 0.0
-    total_hpp_seluruh_item = 0.0
-    total_tinta_seluruh_item = 0.0
+    profit = 0.0
     
     transaksi_kode = generate_transaksi_kode()
     
@@ -94,11 +124,14 @@ def proses_checkout(db: Session, req: CheckoutRequest, kasir_id: int, kasir_nama
     trx_id = trx_row.id
     trx_tanggal = trx_row.tanggal
     
+    # Sort items by produk_id to prevent deadlocks when locking batches
+    req.items = sorted(req.items, key=lambda x: x.produk_id)
+
     # Potong FIFO
     for item in req.items:
         # Ambil batch terlama yang masih punya qty > 0
         batches = db.execute(
-            text("SELECT id, qty_sisa, harga_beli FROM produk_batch WHERE produk_id = :pid AND qty_sisa > 0 ORDER BY tanggal_masuk ASC"),
+            text("SELECT id, qty_sisa, harga_beli FROM produk_batch WHERE produk_id = :pid AND qty_sisa > 0 ORDER BY tanggal_masuk ASC FOR UPDATE"),
             {"pid": item.produk_id}
         ).fetchall()
         
@@ -123,6 +156,9 @@ def proses_checkout(db: Session, req: CheckoutRequest, kasir_id: int, kasir_nama
                 
             hpp_aktual_item_ini += float(batch.harga_beli) * potong_qty
             sisa_yg_harus_dipotong -= potong_qty
+            
+        if sisa_yg_harus_dipotong > 0:
+            raise InsufficientStockException(item.produk_id, stok_map[item.produk_id]["nama"], item.qty, item.qty - sisa_yg_harus_dipotong)
             
         hpp_per_unit = hpp_aktual_item_ini / item.qty if item.qty > 0 else 0
         
@@ -153,16 +189,19 @@ def proses_checkout(db: Session, req: CheckoutRequest, kasir_id: int, kasir_nama
             }
         )
         
-        if not item.is_bonus:
-            total_omzet += (harga_jual * item.qty)
-            total_hpp_seluruh_item += (hpp_efektif * item.qty)
-            total_tinta_seluruh_item += (harga_tinta * item.qty)
+        omzet_item, profit_item = hitung_total_dan_profit(
+            harga_jual=harga_jual,
+            harga_beli=hpp_efektif,
+            harga_tinta=harga_tinta,
+            qty=item.qty,
+            is_bonus=item.is_bonus
+        )
+        total_omzet += omzet_item
+        profit += profit_item
             
     # Validasi pembayaran
     if req.uang_bayar < total_omzet:
         raise ValueError(f"Uang bayar (Rp {req.uang_bayar}) kurang dari total (Rp {total_omzet})")
-        
-    profit = total_omzet - total_hpp_seluruh_item - total_tinta_seluruh_item
     
     # Update transaksi
     db.execute(
@@ -171,19 +210,14 @@ def proses_checkout(db: Session, req: CheckoutRequest, kasir_id: int, kasir_nama
     )
     
     # Tulis Audit Log (Activity Log)
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:kasir_id, :kasir_nama, 'kasir', 'CREATE', 'transaksi', :trx_kode, :info)
-        """),
-        {
-            "kasir_id": kasir_id, "kasir_nama": kasir_nama, 
-            "trx_kode": transaksi_kode,
-            "info": f"Checkout {len(req.items)} item. Total: {total_omzet}"
-        }
-    )
+    log_action(db, {"id": kasir_id, "username": kasir_nama, "role": "kasir"}, 
+               'CREATE', 'transaksi', transaksi_kode, f"Checkout {len(req.items)} item. Total: {total_omzet}")
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise ValueError("Gagal melakukan checkout karena masalah integritas data (stok mungkin tidak cukup atau negatif).") from e
     
     return {
         "id": trx_id,

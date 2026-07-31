@@ -1,0 +1,200 @@
+# =============================================================================
+# 01_sesi1_integritas_data_skema.yaml — Sesi 1: Integritas Data & Skema Kritis
+# =============================================================================
+# Rencana: "Addendum 29-36"  |  Lihat 00_index.yaml untuk urutan sesi lengkap.
+# Task 1.1 & 1.2 SUDAH DONE (dikerjakan sebelum file ini ditulis) -- dicantumkan
+# di sini hanya sebagai konteks historis, JANGAN dikerjakan ulang.
+
+sesi_id: sesi_1
+judul: "Integritas Data & Skema Kritis"
+status: done
+
+tasks:
+  # ---------------------------------------------------------------------
+  - id: "1.1"
+    judul: "Validasi qty>0 pada CheckoutItem + perbaiki agregasi validasi stok"
+    temuan_ref: [30]
+    severity: Critical
+    status: done
+    catatan: "Sudah selesai 2026-07-31. Field(gt=0) pada CheckoutItem.qty + guard eksplisit qty<=0 di backend/app/kasir/checkout_service.py. Lihat PATCHLOG.md untuk detail."
+
+  # ---------------------------------------------------------------------
+  - id: "1.2"
+    judul: "Validasi harga_jual/diskon checkout terhadap harga acuan produk"
+    temuan_ref: [31]
+    severity: High
+    status: done
+    catatan: "Sudah selesai 2026-07-31 (PATCH-2026-07-31-066). Bandingkan harga_jual+diskon client dengan produk.harga_jual di server, tolak diskon/tinta negatif. Lihat PATCHLOG.md untuk detail."
+
+  # ---------------------------------------------------------------------
+  - id: "1.3"
+    judul: "INSERT produk_batch menyertakan kolom qty_masuk (NOT NULL)"
+    temuan_ref: [1]
+    severity: Critical
+    status: done
+    depends_on: []
+    files:
+      edit:
+        - backend/app/inventory/fifo_service.py       # fungsi tambah_stok(), line 19-26
+        - backend/app/inventory/batch_crud.py          # fungsi tambah_batch(), line 77-84
+        - backend/app/transaksi/delete_transaksi.py    # retur stok saat hapus transaksi, line 41-51
+        - backend/app/transaksi/edit_item.py           # retur stok saat qty turun, line ~96-106 (blok "else: qty TURUN")
+      dokumentasi_opsional:
+        - AI_CONTEXT.md   # §4: perbaiki catatan scope "Temuan 29-36" -> jelaskan rencana diperluas ke 1-36 (lihat 00_index.yaml)
+        - STATUS.md        # header: sinkronkan current_task dengan scope baru
+    masalah: |
+      migrations/0001_produk_batch_pelanggan.sql baris 22 mendefinisikan
+      `qty_masuk INT NOT NULL` tanpa default. Keempat file di atas melakukan
+      `INSERT INTO produk_batch (produk_id, qty_sisa, harga_beli, tanggal_masuk)`
+      -- TIDAK PERNAH menyertakan qty_masuk. Setiap INSERT ini akan gagal
+      dengan `ERROR: null value in column "qty_masuk"` di Postgres asli
+      (terverifikasi 2026-07-31 langsung terhadap kode saat ini). Dampak:
+      tambah stok, retur transaksi (hapus/edit-qty), dan tambah batch manual
+      SEMUA selalu gagal -- aplikasi tidak bisa dipakai untuk operasi stok
+      apa pun.
+    solusi:
+      - "Di fifo_service.py::tambah_stok -- tambahkan kolom qty_masuk ke INSERT, isi dengan nilai `qty` yang sama dengan qty_sisa awal."
+      - "Di batch_crud.py::tambah_batch -- sama, isi qty_masuk = req.qty."
+      - "Di delete_transaksi.py -- isi qty_masuk = item.qty (qty yang diretur, sama dengan qty_sisa batch retur baru)."
+      - "Di edit_item.py blok qty-turun -- isi qty_masuk = qty_retur (sama dengan qty_sisa batch retur baru)."
+      - "Pastikan semua 4 lokasi memakai nama parameter yang konsisten (mis. :qty_masuk) agar mudah di-audit lewat automation/patchlog.py symbol tambah_stok / tambah_batch nanti."
+    acceptance_criteria:
+      - "Keempat statement INSERT INTO produk_batch menyertakan qty_masuk."
+      - "qty_masuk yang di-insert SELALU sama dengan qty_sisa pada baris yang sama (batch baru selalu 'penuh' saat dibuat, sesuai PRD §16)."
+      - "Uji manual terhadap Postgres asli (docker compose up --build): tambah stok, retur hapus-transaksi, retur edit-qty-turun, tambah batch manual -- keempatnya berhasil tanpa NOT NULL violation."
+      - "Test existing di tests/backend/app/inventory/test_fifo.py dan tests/backend/app/transaksi/test_retur_stok.py tetap hijau (catatan: test ini pakai sqlite in-memory yang TIDAK enforce constraint qty_masuk NOT NULL secara sama seperti Postgres -- lihat status_test_suite di 00_index.yaml, jangan andalkan pytest hijau saja untuk task ini)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/inventory tests/backend/app/transaksi -q"
+      catatan: "WAJIB verifikasi tambahan manual ke Postgres asli, lihat acceptance_criteria."
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "No"
+      risk: Low
+      title_saran: "Sertakan qty_masuk pada seluruh INSERT produk_batch (Temuan 1)"
+
+  # ---------------------------------------------------------------------
+  - id: "1.4"
+    judul: "Migrasi tambahan: kolom pelanggan.keterangan + CHECK qty_sisa>=0"
+    temuan_ref: [4, 28]
+    severity: Critical
+    status: done
+    depends_on: []
+    files:
+      buat_baru:
+        - migrations/0005_pelanggan_keterangan_qty_check.sql
+      edit: []
+      catatan_kode_sudah_siap: >
+        backend/app/pelanggan/crud.py SUDAH mereferensikan kolom `keterangan`
+        (PelangganBase.keterangan, INSERT line 65, UPDATE line 123) -- kode
+        tidak perlu diubah, HANYA skemanya yang kurang. Jangan sentuh
+        pelanggan/crud.py di task ini.
+    masalah: |
+      Temuan 4 (Critical): tabel `pelanggan` di migrations/0001 hanya berisi
+      id, nama, alamat, no_hp, created_at -- tidak ada kolom `keterangan`.
+      backend/app/pelanggan/crud.py sudah menulis/membaca kolom ini di
+      INSERT dan UPDATE -> selalu gagal dengan
+      `ERROR: column "keterangan" of relation "pelanggan" does not exist`.
+
+      Temuan 28 (Info, digabung ke task ini karena sama-sama migrasi skema
+      baru dan berhubungan dengan Temuan 6/sesi 3): kolom
+      `produk_batch.qty_sisa` tidak punya CHECK constraint >= 0, sehingga
+      tidak ada lapisan pertahanan terakhir di level database terhadap stok
+      negatif (row locking di sesi 3 adalah lapisan pertama, CHECK ini
+      lapisan kedua).
+    solusi:
+      - "Buat file migrasi BARU migrations/0005_pelanggan_keterangan_qty_check.sql -- JANGAN edit migrations/0001 (migrasi sudah merge, immutable per AI_CONTEXT.md §2)."
+      - "Isi migrasi: `ALTER TABLE pelanggan ADD COLUMN keterangan TEXT;`"
+      - "Tambahkan juga: `ALTER TABLE produk_batch ADD CONSTRAINT check_qty_sisa_non_negative CHECK (qty_sisa >= 0);`"
+      - "Update docs/PRD.md bagian skema pelanggan & produk_batch jika PRD mendokumentasikan daftar kolom eksplisit (cek dulu, edit hanya jika perlu)."
+    acceptance_criteria:
+      - "File migrations/0005_pelanggan_keterangan_qty_check.sql ada dan bisa dijalankan berurutan setelah 0001-0004."
+      - "CRUD pelanggan (create/update) dengan field keterangan berhasil tanpa error kolom tidak ada."
+      - "INSERT/UPDATE manual yang mencoba membuat qty_sisa negatif pada produk_batch ditolak database dengan constraint violation (uji manual ke Postgres asli, BUKAN via kode aplikasi yang mungkin sudah mencegahnya sendiri)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend -q"
+      catatan: "Migrasi baru wajib diuji manual: docker compose up --build lalu jalankan migration runner (cek README.md/scripts untuk cara apply migrations/*.sql), baru jalankan pytest."
+    patchlog:
+      type: Fix
+      area: Database
+      priority: Critical
+      breaking: "No"
+      risk: Low
+      title_saran: "Tambah kolom pelanggan.keterangan + CHECK qty_sisa>=0 (Temuan 4, 28)"
+
+  # ---------------------------------------------------------------------
+  - id: "1.5"
+    judul: "Perbandingan boolean is_bonus = 0 -> IS FALSE"
+    temuan_ref: [3]
+    severity: Critical
+    status: done
+    depends_on: []
+    files:
+      edit:
+        - backend/app/laporan/export_xlsx.py               # line 118
+        - backend/app/laporan/ringkasan_transaksi_produk.py # line 141
+        - backend/app/ml/prediksi_stok.py                   # line 32
+        - backend/app/ml/prediksi_demand.py                 # line 21, 29
+        - backend/app/ml/promo_recommendation.py             # line 25, 33, 41, 91
+    masalah: |
+      Kolom transaksi_detail.is_bonus bertipe BOOLEAN (migrations/0002).
+      Kelima file di atas membandingkan `is_bonus = 0` (literal integer),
+      yang di PostgreSQL selalu error:
+      `ERROR: operator does not exist: boolean = integer`. Semua query
+      laporan produk dan seluruh scoring ML (prediksi stok/demand/promo)
+      tidak bisa jalan sama sekali di Postgres asli.
+    solusi:
+      - "Ganti semua `is_bonus = 0` menjadi `is_bonus IS FALSE` (atau `NOT is_bonus` jika kolom dijamin NOT NULL -- cek skema dulu; migrations/0002 -- pastikan pilih bentuk yang aman terhadap NULL)."
+      - "Grep ulang seluruh backend/app untuk pola `is_bonus = 1` / `is_bonus=1` juga (kemungkinan ada pola serupa untuk True yang belum tercatat di laporan audit) sebelum menutup task ini."
+      - "Task ini SENGAJA dipisah dari perbaikan strftime/date() di file yang sama (sesi 2) supaya perubahan kecil ini bisa direview & di-merge cepat tanpa menunggu migrasi tanggal yang lebih besar. Sesi 2 nanti akan menyentuh file yang sama lagi (WHERE clause yang sama persis) -- pastikan task 1.5 selesai & di-commit DULU sebelum sesi 2 dimulai supaya tidak ada conflict."
+    acceptance_criteria:
+      - "grep -rn \"is_bonus = 0\\|is_bonus=0\" backend/app tidak menghasilkan match lagi."
+      - "Kelima endpoint (laporan produk, export xlsx tab produk, prediksi stok, prediksi demand, promo recommendation) tidak error operator boolean=integer saat dites manual ke Postgres asli."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "No"
+      risk: Low
+      title_saran: "Ganti perbandingan is_bonus = 0 dengan IS FALSE (Temuan 3)"
+
+  # ---------------------------------------------------------------------
+  - id: "1.6"
+    judul: "Backup/restore: parsing DATABASE_URL pakai parser standar"
+    temuan_ref: [5]
+    severity: Critical
+    status: done
+    depends_on: []
+    files:
+      edit:
+        - backend/app/backup/create_list_download.py  # line 45-53
+        - backend/app/backup/restore_delete.py         # line 43-51
+    masalah: |
+      Regex `r"postgresql://([^:]+):([^@]+)@([^:/]+):(\d+)/(.+)"` mensyaratkan
+      skema literal `postgresql://`, tidak menangani password mengandung `@`,
+      dan tidak mendukung query string. docker-compose.yml environment backend
+      justru memakai `postgresql+psycopg2://kasir:kasir@db:5432/kasir_pos`
+      (skema SQLAlchemy) -- regex ini TIDAK MATCH terhadap DATABASE_URL bawaan
+      repo sendiri, sehingga endpoint /backup/create dan /backup/restore/{filename}
+      SELALU gagal dengan ValueError pada konfigurasi deployment default.
+    solusi:
+      - "Ganti regex manual dengan `sqlalchemy.engine.url.make_url(DATABASE_URL)` di kedua file -- ambil .username, .password, .host, .port, .database dari objek URL, bukan dari regex match groups."
+      - "Pastikan make_url() dipanggil terhadap DATABASE_URL asli dari env (bisa mengandung driver suffix +psycopg2), bukan hasil strip manual -- make_url sudah menangani ini secara native."
+      - "Tambahkan test unit kecil (baru) yang memverifikasi parsing berhasil untuk `postgresql+psycopg2://user:p@ss@host:5432/db?sslmode=require` (kasus password mengandung '@' dan ada query string) -- ini persis skenario yang bikin regex lama gagal."
+    acceptance_criteria:
+      - "POST /backup/create berhasil terhadap DATABASE_URL bawaan docker-compose.yml (postgresql+psycopg2://...) tanpa ValueError 'Format DATABASE_URL tidak dikenali'."
+      - "Restore juga berhasil dengan DATABASE_URL yang sama."
+      - "Parsing tetap benar untuk password yang mengandung karakter '@' (uji dengan DATABASE_URL dummy khusus test)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/backup -q"
+      catatan: "Folder tests/backend/app/backup/ kemungkinan belum ada -- buat jika belum, mirror struktur backend/app/backup/ sesuai AI_CONTEXT.md §2."
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Critical
+      breaking: "No"
+      risk: Medium
+      title_saran: "Parsing DATABASE_URL pakai sqlalchemy.engine.url.make_url (Temuan 5)"

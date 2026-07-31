@@ -5,7 +5,9 @@ from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is missing. Application cannot start securely.")
 ALGORITHM = "HS256"
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT", "60"))
 

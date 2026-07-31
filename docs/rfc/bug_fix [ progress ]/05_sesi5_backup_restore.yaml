@@ -1,0 +1,175 @@
+# =============================================================================
+# 05_sesi5_backup_restore.yaml — Sesi 5: Reliabilitas Backup & Restore
+# =============================================================================
+# Rencana: "Addendum 29-36"  |  Lihat 00_index.yaml untuk urutan sesi lengkap.
+# Prasyarat: task 1.6 (parsing DATABASE_URL) harus selesai lebih dulu --
+# backup/restore tidak bisa dites sama sekali sebelum 1.6 selesai karena
+# selalu gagal di langkah parsing URL.
+
+sesi_id: sesi_5
+judul: "Reliabilitas Backup & Restore"
+status: pending
+depends_on_sesi: ["sesi_1"]
+
+tasks:
+  # ---------------------------------------------------------------------
+  - id: "5.1"
+    judul: "Restore all-or-nothing: ON_ERROR_STOP + single-transaction"
+    temuan_ref: [9]
+    severity: High
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/backup/restore_delete.py   # line 59-62, subprocess.run(["psql", ...])
+    masalah: |
+      Pemanggilan psql saat restore tidak punya flag `-v ON_ERROR_STOP=1`
+      maupun `--single-transaction`. Default psql melanjutkan eksekusi
+      statement berikutnya meski satu statement gagal -- jika ada statement
+      di tengah dump yang error, database bisa berakhir dalam kondisi
+      CAMPURAN: sebagian ter-restore, sebagian tidak. Pesan error di endpoint
+      (line 67-74) juga tidak menjelaskan kemungkinan restore parsial ini.
+    solusi:
+      - "Tambahkan `-v ON_ERROR_STOP=1` dan `--single-transaction` ke list argumen subprocess.run untuk psql."
+      - "Update pesan error di endpoint (line 67-74): jelaskan bahwa dengan flag baru ini, kegagalan restore TIDAK akan meninggalkan database dalam kondisi campuran -- restore sebelumnya (sebelum fix) tetap berhasil (commit) sepenuhnya atau gagal (rollback) sepenuhnya."
+    acceptance_criteria:
+      - "Test manual: buat dump SQL yang sengaja punya 1 statement invalid di tengah -- restore dengan flag baru GAGAL TOTAL dan database tetap dalam kondisi SEBELUM restore dimulai (bukan campuran)."
+      - "Restore dump yang valid tetap berhasil seperti biasa."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/backup -q"
+      catatan: "Uji manual wajib dengan dump invalid sengaja, tidak cukup diwakili unit test biasa."
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: High
+      breaking: "No"
+      risk: Low
+      title_saran: "psql restore pakai ON_ERROR_STOP=1 --single-transaction (Temuan 9)"
+
+  # ---------------------------------------------------------------------
+  - id: "5.2"
+    judul: "Dispose koneksi SQLAlchemy sebelum menjalankan proses restore"
+    temuan_ref: [15]
+    severity: Medium
+    status: pending
+    depends_on: ["5.1"]
+    files:
+      edit:
+        - backend/app/backup/restore_delete.py   # line 20-24 (db session di-inject), 59-62 (subprocess psql)
+    masalah: |
+      Request handler restore_backup masih memegang sesi/koneksi SQLAlchemy
+      aktif (db: Session = Depends(get_db)) SAAT subprocess psql dijalankan
+      terhadap database yang SAMA, tanpa engine.dispose() sebelum/sesudahnya.
+      Response endpoint sendiri mengakui perlu "Restart service backend"
+      setelah restore -- indikasi koneksi lama berpotensi stale/invalid.
+    solusi:
+      - "Panggil `engine.dispose()` (import engine dari app.database) SEBELUM menjalankan subprocess psql, supaya seluruh connection pool SQLAlchemy dilepas dan tidak memegang lock apa pun ke tabel yang akan direstore."
+      - "Setelah restore selesai (baik sukses maupun gagal), pastikan pool baru terbentuk otomatis saat request berikutnya minta koneksi (SQLAlchemy default behavior -- tidak perlu inisialisasi ulang manual, cukup pastikan tidak ada sesi lama yang di-reuse)."
+      - "Update pesan sukses endpoint: evaluasi apakah 'Restart service backend' masih perlu disebut ke user setelah fix ini, atau bisa dihapus/diubah jadi opsional."
+    acceptance_criteria:
+      - "Restore berhasil tanpa perlu restart manual proses backend setelahnya (uji: lakukan request lain ke API segera setelah restore selesai, harus berhasil normal)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/backup -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "No"
+      risk: Medium
+      title_saran: "engine.dispose() sebelum proses restore (Temuan 15)"
+
+  # ---------------------------------------------------------------------
+  - id: "5.3"
+    judul: "Tangani exception dari do_backup() di endpoint create backup"
+    temuan_ref: [16]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/backup/create_list_download.py   # line 92-115
+    masalah: |
+      `do_backup(label or "")` (line 98) TIDAK dibungkus try/except -- hanya
+      insert activity_log (line 102-113) yang dibungkus. Jika pg_dump gagal
+      atau DATABASE_URL tak sesuai (Temuan 5), exception (termasuk
+      result.stderr mentah) menembus tanpa ditangani sampai ke client.
+    solusi:
+      - "Bungkus pemanggilan do_backup() dengan try/except eksplisit."
+      - "Terapkan pola yang sama dengan task 4.5 (jangan expose exception mentah): log detail lengkap, kembalikan HTTPException dengan pesan generik + status code yang sesuai (500 atau 502 tergantung apakah kegagalan di sisi kita atau proses eksternal pg_dump)."
+    acceptance_criteria:
+      - "Simulasikan pg_dump gagal (mis. DATABASE_URL sengaja salah di test) -> endpoint mengembalikan error terstruktur (HTTPException), bukan 500 tanpa pesan atau crash tak tertangani."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/backup -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "No"
+      risk: Low
+      title_saran: "Tangani exception do_backup() di endpoint create (Temuan 16)"
+
+  # ---------------------------------------------------------------------
+  - id: "5.4"
+    judul: "Timeout pada subprocess pg_dump/psql"
+    temuan_ref: [24]
+    severity: Low
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/backup/create_list_download.py   # line 59-62
+        - backend/app/backup/restore_delete.py           # line 59-62
+    masalah: |
+      subprocess.run([...], capture_output=True, text=True, env=env) dipanggil
+      TANPA parameter timeout. Jika proses pg_dump/psql hang, request HTTP
+      yang memicunya tertahan tanpa batas waktu, menahan worker.
+    solusi:
+      - "Tambahkan `timeout=<detik>` yang masuk akal (mis. 120 detik untuk backup, 300 detik untuk restore -- sesuaikan dengan ukuran database yang realistis untuk toko cat, boleh dibuat configurable via env var) ke kedua pemanggilan subprocess.run."
+      - "Tangkap subprocess.TimeoutExpired secara eksplisit, kembalikan pesan error yang jelas ('Proses backup/restore melebihi batas waktu') alih-alih exception generik."
+    acceptance_criteria:
+      - "Simulasi proses yang hang (mis. mock subprocess di test) -> endpoint mengembalikan error timeout yang jelas dalam batas waktu yang ditentukan, bukan tertahan selamanya."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/backup -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Low
+      breaking: "No"
+      risk: Low
+      title_saran: "Timeout pada subprocess pg_dump/psql (Temuan 24)"
+
+  # ---------------------------------------------------------------------
+  - id: "5.5"
+    judul: "Named volume persistent untuk backend/backups di docker-compose"
+    temuan_ref: [34]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - docker-compose.yml
+    masalah: |
+      Service `db` punya named volume eksplisit (kasir_pos_db_data), tapi
+      service `backend` hanya punya bind-mount seluruh source
+      (`./backend:/app`, untuk keperluan --reload mode dev) dan TIDAK ADA
+      volume khusus untuk folder backups/. Jika image di-build & dijalankan
+      TANPA bind-mount seluruh source (pola umum produksi), file backup
+      (termasuk safety backup otomatis sebelum restore) tersimpan di
+      filesystem container yang ephemeral -- HILANG saat container
+      direstart/diganti image -- bertentangan dengan tujuan fitur backup itu
+      sendiri.
+    solusi:
+      - "Tambahkan named volume baru di docker-compose.yml, mis. `kasir_pos_backups:/app/backups`, di service backend."
+      - "Tambahkan entry `kasir_pos_backups:` di top-level `volumes:` (sejajar dengan kasir_pos_db_data)."
+      - "Dokumentasikan di README.md/docs/ARSITEKTUR.md bahwa untuk deployment produksi TANPA bind-mount source, volume ini WAJIB ada supaya backup persistent."
+    acceptance_criteria:
+      - "docker compose down && docker compose up (tanpa -v, volume tidak dihapus) -- file backup yang dibuat sebelum down masih ada setelah up lagi, bahkan jika bind-mount source dilepas untuk simulasi mode produksi."
+    test:
+      command: "N/A -- perubahan infrastruktur, verifikasi manual dengan docker compose"
+    patchlog:
+      type: Fix
+      area: Infrastructure
+      priority: Medium
+      breaking: "No"
+      risk: Low
+      title_saran: "Named volume persistent untuk backend/backups (Temuan 34)"

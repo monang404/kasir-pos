@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
@@ -23,7 +23,7 @@ def get_dashboard_stats(
     db: Session = Depends(get_db)
 ):
     # Default to current month if not provided
-    filter_bulan = bulan if bulan else datetime.now().strftime("%Y-%m")
+    filter_bulan = bulan if bulan else datetime.now(timezone.utc).strftime("%Y-%m")
 
     # 1. Hitung stats untuk bulan terpilih (ikut filter)
     row_trx = db.execute(
@@ -32,7 +32,7 @@ def get_dashboard_stats(
                    COALESCE(SUM(profit), 0) AS laba_kotor,
                    COUNT(*) AS jumlah_transaksi
             FROM transaksi 
-            WHERE strftime('%Y-%m', tanggal) = :bulan
+            WHERE to_char(tanggal, 'YYYY-MM') = :bulan
         """),
         {"bulan": filter_bulan}
     ).fetchone()
@@ -41,7 +41,7 @@ def get_dashboard_stats(
         text("""
             SELECT COALESCE(SUM(jumlah), 0) AS total_pengeluaran
             FROM pengeluaran
-            WHERE strftime('%Y-%m', tanggal) = :bulan
+            WHERE to_char(tanggal, 'YYYY-MM') = :bulan
         """),
         {"bulan": filter_bulan}
     ).fetchone()
@@ -53,7 +53,7 @@ def get_dashboard_stats(
     trx_filter = row_trx.jumlah_transaksi
 
     # 2. Hitung growth (SELALU current month vs prev month, tidak ikut filter)
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     curr_month_str = now.strftime("%Y-%m")
     first = now.replace(day=1)
     prev_month = first - timedelta(days=1)
@@ -66,13 +66,13 @@ def get_dashboard_stats(
                    COALESCE(SUM(profit), 0) AS laba_kotor,
                    COUNT(*) AS jumlah_transaksi
             FROM transaksi 
-            WHERE strftime('%Y-%m', tanggal) = :bulan
+            WHERE to_char(tanggal, 'YYYY-MM') = :bulan
         """),
         {"bulan": curr_month_str}
     ).fetchone()
     
     curr_peng = db.execute(
-        text("SELECT COALESCE(SUM(jumlah), 0) FROM pengeluaran WHERE strftime('%Y-%m', tanggal) = :bulan"),
+        text("SELECT COALESCE(SUM(jumlah), 0) FROM pengeluaran WHERE to_char(tanggal, 'YYYY-MM') = :bulan"),
         {"bulan": curr_month_str}
     ).scalar() or 0
 
@@ -87,13 +87,13 @@ def get_dashboard_stats(
                    COALESCE(SUM(profit), 0) AS laba_kotor,
                    COUNT(*) AS jumlah_transaksi
             FROM transaksi 
-            WHERE strftime('%Y-%m', tanggal) = :bulan
+            WHERE to_char(tanggal, 'YYYY-MM') = :bulan
         """),
         {"bulan": prev_month_str}
     ).fetchone()
 
     prev_peng = db.execute(
-        text("SELECT COALESCE(SUM(jumlah), 0) FROM pengeluaran WHERE strftime('%Y-%m', tanggal) = :bulan"),
+        text("SELECT COALESCE(SUM(jumlah), 0) FROM pengeluaran WHERE to_char(tanggal, 'YYYY-MM') = :bulan"),
         {"bulan": prev_month_str}
     ).scalar() or 0
 

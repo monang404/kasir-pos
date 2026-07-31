@@ -51,7 +51,7 @@ def compute_prediksi_omzet(db: Session):
     rows = db.execute(text("""
         SELECT date(tanggal) as tgl, SUM(total) as omzet
         FROM transaksi
-        WHERE date(tanggal) >= date('now', '-90 days')
+        WHERE date(tanggal) >= CURRENT_DATE - INTERVAL '90 days'
         GROUP BY date(tanggal)
         ORDER BY date(tanggal) ASC
     """)).fetchall()

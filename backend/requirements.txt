@@ -10,4 +10,6 @@ ruff>=0.5
 psycopg2-binary
 openpyxl>=3.1
 python-multipart
-passlib[bcrypt]
+redis>=5.0
+numpy
+scikit-learn

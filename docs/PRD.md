@@ -647,6 +647,8 @@ Bagian ini **wajib dibaca** sebelum migrasi — mendaftar semua inkonsistensi ny
 15. **Tidak ada rollback transaksional penuh pada checkout kasir** (lihat §9 poin 9) — risiko data-stok/DB tidak konsisten jika terjadi crash/exception di tengah proses multi-langkah (potong stok → simpan header → simpan tiap detail). Migrasi ke web **sangat disarankan** membungkus seluruh proses checkout dalam **satu database transaction** (all-or-nothing).
 16. **Kontrol akses hanya di level halaman**, bukan di level aksi/API. Saat migrasi ke web dengan API terpisah, **setiap endpoint backend juga harus divalidasi role secara independen di server** (jangan cuma andalkan UI menyembunyikan tombol) — celah keamanan jika hanya meniru pola front-end lama.
 17. **Field `pengeluaran.kategori` tidak divalidasi/constrained di level database** (tidak ada CHECK constraint) — nilai bebas teks, konsistensi hanya dijaga oleh dropdown UI. Jika ada jalur input lain (mis. import), kategori tak terduga bisa masuk.
+18. **Status Fitur ML (Keputusan Produk):** Fitur seleksi model ML (Random Forest dan Linear Regression) pada modul prediksi omzet secara resmi **DIAKTIFKAN**. Package `numpy` dan `scikit-learn` telah ditambahkan secara permanen ke `requirements.txt`.
+19. **Lockout berbasis Redis:** Mekanisme lockout saat login gagal (5x dalam 5 menit) sekarang diimplementasikan menggunakan Redis, menggantikan in-memory variable. Pastikan instance Redis (port 6379) berjalan dan `REDIS_URL` terkonfigurasi.
 
 ---
 
@@ -665,6 +667,7 @@ Ringkasan aturan yang **berlaku di banyak tempat** dan wajib dipertahankan sama 
 9. **Semua uang dalam Rupiah, format tampilan** `Rp X.XXX.XXX` (titik sebagai pemisah ribuan, tanpa desimal) — fungsi `format_rupiah()` di `pricing_service.py` menjadi acuan format.
 10. **Semua tanggal disimpan sebagai string** `"YYYY-MM-DD HH:MM:SS"` (bukan native datetime SQLite), query filter tanggal memakai `DATE(kolom)` atau `strftime()` SQLite.
 11. **Halaman yang diizinkan per role** ditentukan di SATU tempat (`session.allowed_pages`) dan harus konsisten dipakai baik oleh Sidebar (render menu) maupun MainWindow (load halaman) — jangan sampai drift saat migrasi ke route-based web app.
+12. **Integritas Checkout (Harga & Qty)**: Checkout API memvalidasi secara ketat bahwa `qty > 0`, `diskon >= 0`, `harga_tinta >= 0`, dan `harga_jual >= 0`. Untuk item non-bonus, berlaku `harga_jual (dari client) + diskon == harga_acuan_produk_di_DB` untuk mencegah eksploitasi harga di sisi client.
 
 ---
 

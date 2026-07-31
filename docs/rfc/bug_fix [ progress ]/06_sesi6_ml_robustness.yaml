@@ -1,0 +1,125 @@
+# =============================================================================
+# 06_sesi6_ml_robustness.yaml — Sesi 6: Modul ML: Robustness & Correctness
+# =============================================================================
+# Rencana: "Addendum 29-36"  |  Lihat 00_index.yaml untuk urutan sesi lengkap.
+# Prasyarat: sesi 2 (fungsi tanggal) sebaiknya selesai dulu untuk modul ML,
+# supaya task di sini tidak sedang debug di atas kode yang masih error
+# duluan karena strftime().
+
+sesi_id: sesi_6
+judul: "Modul ML: Robustness & Correctness"
+status: pending
+depends_on_sesi: ["sesi_2"]
+
+tasks:
+  # ---------------------------------------------------------------------
+  - id: "6.1"
+    judul: "Race condition trigger job ML: atomic check-and-set"
+    temuan_ref: [12]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/ml/job_infra.py   # get_or_trigger_ml_task(), line 107-135
+    masalah: |
+      `manager.get_cache(key)` dipakai untuk memutuskan needs_refresh, lalu
+      TERPISAH memanggil `manager.set_status(key, "training")` dan
+      `bg_tasks.add_task(...)`. Tidak ada locking antara pengecekan cache dan
+      penetapan status. Dua request bersamaan pada endpoint yang sama (mis.
+      /ml/prediksi-omzet) saat cache kadaluarsa bisa SAMA-SAMA lolos
+      pengecekan is_training dan memicu DUA background job sekaligus untuk
+      key yang sama (pemborosan komputasi berat, potensi race condition
+      lanjutan saat keduanya menulis hasil).
+    solusi:
+      - "Ganti pola check-then-act dengan operasi atomik: `UPDATE ml_cache SET status='training' WHERE key=:key AND status != 'training' RETURNING key` (atau tabel/kolom cache yang relevan sesuai skema job_infra.py saat ini) -- cek rowcount hasil UPDATE, hanya trigger background task jika rowcount==1 (berarti request ini yang 'menang')."
+      - "Alternatif jika struktur cache tidak mendukung UPDATE atomik seperti di atas: pakai PostgreSQL advisory lock (`pg_try_advisory_lock`) dengan key numerik turunan dari cache key, lepas lock setelah background job selesai."
+      - "Pilih salah satu pendekatan, dokumentasikan alasan pemilihan di komentar kode."
+    acceptance_criteria:
+      - "Test concurrency: 2 request bersamaan ke endpoint yang sama dengan cache kadaluarsa -> HANYA SATU background job yang benar-benar berjalan (diverifikasi lewat counter/mock pada fungsi training)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/ml -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "No"
+      risk: Medium
+      title_saran: "Atomic check-and-set untuk trigger job ML (Temuan 12)"
+
+  # ---------------------------------------------------------------------
+  - id: "6.2"
+    judul: "Perbaiki bare except yang menelan NameError di run_ml_job"
+    temuan_ref: [13]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/ml/job_infra.py   # run_ml_job(), line 72-90
+    masalah: |
+      Jika `MLCacheManager(db)` (line 74) melempar exception SEBELUM
+      `manager` ter-assign, blok `except Exception as e` (line 82) tetap
+      memanggil `manager.set_status(key, "ready")` (line 86) -> NameError,
+      ditangkap oleh bare `except: pass` (line 87-88) dan TERTELAN SEPENUHNYA
+      tanpa log. Karena status sudah di-set "training" sebelum background
+      task berjalan (line 133) dan tidak pernah direset akibat kegagalan
+      ini, endpoint akan menganggap job masih berjalan SELAMANYA.
+    solusi:
+      - "Inisialisasi `manager = None` di AWAL fungsi, sebelum try block."
+      - "Di except block, cek `if manager is not None:` sebelum memanggil manager.set_status(...) -- jika manager None, set status 'ready'/'error' lewat jalur lain (mis. langsung UPDATE via db session yang sudah pasti ada, tidak bergantung pada MLCacheManager yang gagal diinisialisasi)."
+      - "Ganti bare `except: pass` (line 87-88) dengan `except Exception: logging.exception(...)` (lihat task 7.6) -- JANGAN biarkan kegagalan penanganan-error tertelan tanpa jejak lagi."
+    acceptance_criteria:
+      - "Test baru: paksa MLCacheManager(db) raise exception saat inisialisasi (mock/monkeypatch) -> status cache untuk key tsb berakhir 'error' atau 'ready', BUKAN macet permanen di 'training'."
+      - "Exception yang terjadi tercatat di log (verifikasi lewat capture log di test), tidak tertelan diam-diam."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/ml -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "No"
+      risk: Low
+      title_saran: "Perbaiki bare except yang menelan NameError di run_ml_job (Temuan 13)"
+
+  # ---------------------------------------------------------------------
+  - id: "6.3"
+    judul: "Tambahkan numpy/scikit-learn ke requirements.txt (atau hapus dead code)"
+    temuan_ref: [35]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/requirements.txt
+        - backend/app/ml/prediksi_omzet.py   # line 12-19, HAS_SKLEARN try/except; line 92-197 model selection
+    masalah: |
+      prediksi_omzet.py membungkus `import numpy`/`from sklearn...` dengan
+      try/except ImportError -> HAS_SKLEARN. backend/requirements.txt TIDAK
+      mencantumkan numpy/scikit-learn/scipy sama sekali. Karena Dockerfile &
+      CI murni pakai requirements.txt, HAS_SKLEARN SELALU False di setiap
+      deployment standar -- cabang kode Random Forest/Linear Regression
+      (line 92-197, termasuk logika pemilihan model terbaik lewat RMSE split
+      80/20) jadi DEAD CODE PERMANEN di produksi, sambil tetap melaporkan
+      field `eval_info: "Model terbaik dipilih otomatis via time-based
+      split."` yang MENYESATKAN karena seleksi itu tidak pernah benar-benar
+      terjadi -- endpoint selalu fallback ke Holt Exponential Smoothing.
+    solusi:
+      - "KEPUTUSAN PRODUK diperlukan sebelum eksekusi: apakah fitur auto-seleksi model (RF/Linear Regression) memang ingin diaktifkan di produksi? Dokumentasikan keputusan ini di docs/PRD.md §15 Known Issues sebelum ubah kode (sama seperti pola keputusan lain di proyek ini, lihat contoh keputusan bonus_kasir/kalkulator di STATUS.md task 1.4 & 9.7)."
+      - "JIKA diaktifkan: tambahkan `numpy` dan `scikit-learn` ke requirements.txt, update Dockerfile jika perlu base image dependencies tambahan (mis. build-essential untuk kompilasi), verifikasi ukuran image & waktu build masih wajar."
+      - "JIKA tidak diaktifkan: hapus seluruh jalur kode Random Forest/Linear Regression (line 92-197) beserta HAS_SKLEARN try/except dan klaim eval_info yang menyesatkan -- sederhanakan jadi Holt Exponential Smoothing saja (satu-satunya yang benar-benar jalan), update eval_info agar sesuai kenyataan."
+      - "Task ini TIDAK BOLEH dieksekusi otomatis tanpa keputusan eksplisit di atas -- flag sebagai butuh konfirmasi manusia sebelum implementasi kode."
+    acceptance_criteria:
+      - "Keputusan terdokumentasi di docs/PRD.md §15."
+      - "Jika diaktifkan: HAS_SKLEARN == True di environment yang mengikuti requirements.txt, dan eval_info yang dilaporkan mencerminkan model yang BENAR-BENAR dipakai."
+      - "Jika dihapus: tidak ada dead code tersisa, eval_info tidak lagi mengklaim seleksi otomatis yang tidak terjadi."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/ml -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "Tergantung keputusan"
+      risk: Medium
+      title_saran: "Selesaikan status fitur RF/Linear Regression prediksi omzet (Temuan 35)"
+      butuh_keputusan_manusia: true

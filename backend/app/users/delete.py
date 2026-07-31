@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/users", tags=["users"])
 check_access = RequireModule("users")
@@ -48,17 +49,7 @@ def delete_user(
         detail = f"User {target.username} dihapus permanen (tidak memiliki riwayat transaksi)"
 
     # ── Catat ke activity_log ──
-    try:
-        db.execute(text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, :aksi, 'users', :tid, :info)
-        """), {
-            "uid": current_user.get("id"), "uname": current_user.get("username"),
-            "role": current_user.get("role"), "aksi": action,
-            "tid": str(user_id), "info": detail
-        })
-    except Exception:
-        pass  # best-effort
+    log_action(db, current_user, action, 'users', str(user_id), detail)
 
     db.commit()
     return {

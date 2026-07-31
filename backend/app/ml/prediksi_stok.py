@@ -29,7 +29,7 @@ def compute_prediksi_stok(db: Session):
         SELECT td.produk_id, date(t.tanggal) as tgl, SUM(td.qty) as daily_qty
         FROM transaksi_detail td
         JOIN transaksi t ON td.transaksi_id = t.id
-        WHERE date(t.tanggal) >= date('now', '-90 days') AND td.is_bonus = 0
+        WHERE date(t.tanggal) >= CURRENT_DATE - INTERVAL '90 days' AND td.is_bonus = FALSE
         GROUP BY td.produk_id, date(t.tanggal)
     """)).fetchall()
     

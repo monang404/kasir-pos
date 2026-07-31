@@ -1,13 +1,14 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/pengeluaran", tags=["pengeluaran"])
 check_access = RequireModule("pengeluaran")
@@ -29,7 +30,8 @@ class PengeluaranBase(BaseModel):
     keterangan: str | None = None
     jumlah: float = Field(..., gt=0)
 
-    @validator('kategori')
+    @field_validator('kategori')
+    @classmethod
     def validate_kategori(cls, v):
         if v not in KATEGORI_ALLOWED:
             raise ValueError(f"Kategori '{v}' tidak valid. Pilih salah satu: {', '.join(KATEGORI_ALLOWED)}")
@@ -46,7 +48,7 @@ def list_pengeluaran(
     params = {}
 
     if bulan:
-        conditions.append("strftime('%Y-%m', tanggal) = :bulan")
+        conditions.append("to_char(tanggal, 'YYYY-MM') = :bulan")
         params["bulan"] = bulan
     if kategori:
         conditions.append("kategori = :kategori")
@@ -108,17 +110,7 @@ def create_pengeluaran(
         }
     ).fetchone()
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'CREATE', 'pengeluaran', :kat, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kat": req.kategori,
-            "info": f"Tambah pengeluaran {req.kategori} Rp {req.jumlah:,.0f}"
-        }
-    )
+    log_action(db, user, 'CREATE', 'pengeluaran', req.kategori, f"Tambah pengeluaran {req.kategori} Rp {req.jumlah:,.0f}")
 
     db.commit()
     return {"message": "Pengeluaran berhasil ditambahkan", "id": result.id}
@@ -150,17 +142,7 @@ def update_pengeluaran(
         }
     )
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'UPDATE', 'pengeluaran', :kat, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kat": req.kategori,
-            "info": f"Update pengeluaran {req.kategori} menjadi Rp {req.jumlah:,.0f}"
-        }
-    )
+    log_action(db, user, 'UPDATE', 'pengeluaran', req.kategori, f"Update pengeluaran {req.kategori} menjadi Rp {req.jumlah:,.0f}")
 
     db.commit()
     return {"message": "Pengeluaran berhasil diupdate"}
@@ -178,17 +160,7 @@ def delete_pengeluaran(
 
     db.execute(text("DELETE FROM pengeluaran WHERE id = :id"), {"id": pengeluaran_id})
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'DELETE', 'pengeluaran', :kat, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kat": target.kategori,
-            "info": f"Hapus pengeluaran {target.kategori} sejumlah Rp {target.jumlah:,.0f}"
-        }
-    )
+    log_action(db, user, 'DELETE', 'pengeluaran', target.kategori, f"Hapus pengeluaran {target.kategori} sejumlah Rp {target.jumlah:,.0f}")
 
     db.commit()
     return {"message": "Pengeluaran berhasil dihapus"}

@@ -7,6 +7,8 @@ from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
 from app.inventory.fifo_service import keluar_fifo
+from app.kasir.pricing import hitung_total_dan_profit
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/transaksi", tags=["transaksi"])
 check_access = RequireModule("transaksi")
@@ -30,13 +32,15 @@ def recalculate_total_profit(db: Session, transaksi_id: int):
     total = 0.0
     profit = 0.0
     for r in rows:
-        if r.is_bonus:
-            # Bonus: stok berkurang tapi tidak masuk omzet/profit
-            continue
-        subtotal_jual = (float(r.harga_jual) + float(r.harga_tinta or 0)) * r.qty
-        subtotal_hpp = float(r.harga_beli) * r.qty
-        total += subtotal_jual
-        profit += subtotal_jual - subtotal_hpp
+        omzet_item, profit_item = hitung_total_dan_profit(
+            harga_jual=float(r.harga_jual),
+            harga_beli=float(r.harga_beli),
+            harga_tinta=float(r.harga_tinta or 0),
+            qty=r.qty,
+            is_bonus=r.is_bonus
+        )
+        total += omzet_item
+        profit += profit_item
 
     db.execute(
         text("UPDATE transaksi SET total = :total, profit = :profit WHERE id = :tid"),
@@ -76,6 +80,11 @@ def edit_item_transaksi(
 
     if selisih > 0:
         # Qty NAIK: potong FIFO tambahan
+        db.execute(
+            text("SELECT id FROM produk_batch WHERE produk_id = :pid ORDER BY tanggal_masuk ASC FOR UPDATE"),
+            {"pid": detail.produk_id}
+        ).fetchall()
+        
         stok_tersedia = db.execute(
             text("SELECT COALESCE(SUM(qty_sisa), 0) FROM produk_batch WHERE produk_id = :pid"),
             {"pid": detail.produk_id}
@@ -87,7 +96,22 @@ def edit_item_transaksi(
                 detail=f"Stok tidak cukup. Tersedia {stok_tersedia}, dibutuhkan {selisih} tambahan."
             )
 
-        keluar_fifo(db, detail.produk_id, selisih)
+        total_hpp, qty_berhasil = keluar_fifo(db, detail.produk_id, selisih)
+        if qty_berhasil < selisih:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Stok tidak cukup saat pemotongan (race condition). Hanya berhasil dipotong {qty_berhasil} dari {selisih}."
+            )
+            
+        # Hitung weighted average HPP
+        harga_beli_lama_total = float(detail.harga_beli) * qty_lama
+        harga_beli_baru = (harga_beli_lama_total + total_hpp) / qty_baru
+        
+        db.execute(
+            text("UPDATE transaksi_detail SET harga_beli = :hbb WHERE id = :did"),
+            {"hbb": harga_beli_baru, "did": detail_id}
+        )
+        
         aksi_info = f"Edit qty {qty_lama}→{qty_baru} (FIFO potong {selisih})"
 
     else:
@@ -95,8 +119,8 @@ def edit_item_transaksi(
         qty_retur = abs(selisih)
         db.execute(
             text("""
-                INSERT INTO produk_batch (produk_id, qty_sisa, harga_beli, tanggal_masuk)
-                VALUES (:pid, :qty, :hb, CURRENT_TIMESTAMP)
+                INSERT INTO produk_batch (produk_id, qty_masuk, qty_sisa, harga_beli, tanggal_masuk)
+                VALUES (:pid, :qty, :qty, :hb, CURRENT_TIMESTAMP)
             """),
             {
                 "pid": detail.produk_id,
@@ -115,17 +139,7 @@ def edit_item_transaksi(
     # Recalculate total & profit header dari semua detail terkini
     recalculate_total_profit(db, transaksi_id)
 
-    # Audit log
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'EDIT_ITEM', 'transaksi', :kode, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kode": detail.trx_kode, "info": aksi_info
-        }
-    )
+    log_action(db, user, 'EDIT_ITEM', 'transaksi', detail.trx_kode, aksi_info)
 
     db.commit()
 

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/inventory/produk", tags=["inventory"])
 check_inventory_access = RequireModule("inventory")
@@ -88,16 +89,7 @@ def create_produk(
         }
     ).fetchone()
     
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'CREATE', 'produk', :kode, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kode": kode_upper, "info": f"Membuat produk {produk.nama}"
-        }
-    )
+    log_action(db, user, 'CREATE', 'produk', kode_upper, f"Membuat produk {produk.nama}")
     
     db.commit()
     return {"message": "Produk berhasil ditambahkan", "id": res.id}
@@ -157,16 +149,7 @@ def update_produk(
         }
     )
     
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'UPDATE', 'produk', :kode, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kode": kode_upper, "info": f"Update produk {produk.nama}"
-        }
-    )
+    log_action(db, user, 'UPDATE', 'produk', kode_upper, f"Update produk {produk.nama}")
     
     db.commit()
     return {"message": "Produk berhasil diupdate"}

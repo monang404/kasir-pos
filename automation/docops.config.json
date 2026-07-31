@@ -1,0 +1,18 @@
+{
+  "project_name": "kasir-POS",
+  "patchlog_path": "PATCHLOG.md",
+  "status_path": "STATUS.md",
+  "area_prefix_map": [
+    ["backend/app/", "Backend"],
+    ["backend/scripts/", "Backend"],
+    ["backend/", "Backend"],
+    ["frontend/src/", "Frontend"],
+    ["frontend/", "Frontend"],
+    ["migrations/", "Database"],
+    ["scripts/", "Tooling"],
+    ["automation/", "Tooling"],
+    ["docs/", "Docs"],
+    ["tests/", "Test"],
+    [".github/", "CI"]
+  ]
+}

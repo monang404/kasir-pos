@@ -18,17 +18,20 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
+        token_version: int = payload.get("version", 0)
         if username is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
         
     user = db.execute(
-        text("SELECT id, username, role, is_active FROM users WHERE username = :username"),
+        text("SELECT id, username, role, is_active, token_version FROM users WHERE username = :username"),
         {"username": username}
     ).fetchone()
     
     if user is None:
+        raise credentials_exception
+    if user.token_version != token_version:
         raise credentials_exception
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Akun dinonaktifkan")

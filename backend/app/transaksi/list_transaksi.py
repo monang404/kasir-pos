@@ -25,7 +25,7 @@ def list_transaksi(
     params: dict = {}
 
     if bulan:
-        conditions.append("strftime('%Y-%m', t.tanggal) = :bulan")
+        conditions.append("to_char(t.tanggal, 'YYYY-MM') = :bulan")
         params["bulan"] = bulan
 
     if pelanggan_id:

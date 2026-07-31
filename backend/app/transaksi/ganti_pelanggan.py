@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/transaksi", tags=["transaksi"])
 check_access = RequireModule("transaksi")
@@ -47,17 +48,7 @@ def ganti_pelanggan(
         {"pid": req.pelanggan_id, "tid": transaksi_id}
     )
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'EDIT', 'transaksi', :kode, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "kode": trx.kode,
-            "info": f"Ganti pelanggan dari ID {trx.pelanggan_id} ke {req.pelanggan_id} ({pelanggan.nama})"
-        }
-    )
+    log_action(db, user, 'EDIT', 'transaksi', trx.kode, f"Ganti pelanggan dari ID {trx.pelanggan_id} ke {req.pelanggan_id} ({pelanggan.nama})")
 
     db.commit()
     return {

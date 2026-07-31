@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/activity-log", tags=["activity_log"])
 check_access = RequireModule("activity_log")
@@ -39,7 +40,7 @@ def list_activity_log(
 
     # Default: 30 hari terakhir jika tidak ada filter tanggal
     if not start_date and not end_date:
-        conditions.append("date(waktu) >= date('now', '-30 days')")
+        conditions.append("date(waktu) >= CURRENT_DATE - INTERVAL '30 days'")
 
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
@@ -47,7 +48,7 @@ def list_activity_log(
     total = db.execute(text(f"SELECT COUNT(*) FROM activity_log {where}"), params).scalar() or 0
     hari_ini = db.execute(
         text(f"SELECT COUNT(*) FROM activity_log {where}" +
-             (" AND " if where else " WHERE ") + "date(waktu) = date('now')"),
+             (" AND " if where else " WHERE ") + "date(waktu) = CURRENT_DATE"),
         params
     ).scalar() or 0
     jumlah_hapus = db.execute(
@@ -97,25 +98,15 @@ def purge_old_logs(
 ):
     """Hapus log yang lebih dari 90 hari."""
     result = db.execute(
-        text("SELECT COUNT(*) FROM activity_log WHERE date(waktu) < date('now', '-90 days')")
+        text("SELECT COUNT(*) FROM activity_log WHERE date(waktu) < CURRENT_DATE - INTERVAL '90 days'")
     ).scalar() or 0
 
     db.execute(
-        text("DELETE FROM activity_log WHERE date(waktu) < date('now', '-90 days')")
+        text("DELETE FROM activity_log WHERE date(waktu) < CURRENT_DATE - INTERVAL '90 days'")
     )
 
     # Log aksi purge itu sendiri
-    try:
-        db.execute(text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_info)
-            VALUES (:uid, :uname, :role, 'DELETE', 'activity_log', :info)
-        """), {
-            "uid": current_user.get("id"), "uname": current_user.get("username"),
-            "role": current_user.get("role"),
-            "info": f"Purge {result} log entry lebih dari 90 hari"
-        })
-    except Exception:
-        pass
+    log_action(db, current_user, 'DELETE', 'activity_log', '', f"Purge {result} log entry lebih dari 90 hari")
 
     db.commit()
     return {"message": f"Berhasil menghapus {result} log entry yang lebih dari 90 hari", "deleted": result}

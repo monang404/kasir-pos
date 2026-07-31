@@ -113,9 +113,9 @@ def export_laporan_excel(
         where_clause_p, params_p = build_date_filter(mode, bulan, start_date, end_date, "t.tanggal")
         headers = ["Kode", "Nama Produk", "Qty Terjual", "Omzet", "Profit"]
         rows = db.execute(text(f"""
-            SELECT p.kode, p.nama, SUM(td.qty) as q, SUM((td.harga_jual+td.harga_tinta)*td.qty) as o, SUM(((td.harga_jual+td.harga_tinta)-td.harga_beli)*td.qty) as pr
+            SELECT p.kode, p.nama, SUM(td.qty) as q, SUM(td.harga_jual*td.qty) as o, SUM((td.harga_jual-td.harga_beli-td.harga_tinta)*td.qty) as pr
             FROM transaksi_detail td JOIN transaksi t ON td.transaksi_id = t.id JOIN produk p ON td.produk_id = p.id
-            WHERE {where_clause_p} AND td.is_bonus = 0 GROUP BY p.id, p.kode, p.nama ORDER BY q DESC
+            WHERE {where_clause_p} AND td.is_bonus = FALSE GROUP BY p.id, p.kode, p.nama ORDER BY q DESC
         """), params_p).fetchall()
         for r in rows:
             data.append([r.kode, r.nama, r.q, r.o, r.pr])

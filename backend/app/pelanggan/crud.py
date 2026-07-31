@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/pelanggan", tags=["pelanggan"])
 check_access = RequireModule("pelanggan")
@@ -24,7 +25,7 @@ def list_pelanggan(
     q: str | None = None,
     db: Session = Depends(get_db)
 ):
-    query = "SELECT id, nama, no_hp, alamat FROM pelanggan"
+    query = "SELECT id, nama, no_hp, alamat, keterangan FROM pelanggan"
     params = {}
     if q:
         query += " WHERE nama LIKE :q OR no_hp LIKE :q"
@@ -34,7 +35,7 @@ def list_pelanggan(
     rows = db.execute(text(query), params).fetchall()
     return {
         "data": [
-            {"id": r.id, "nama": r.nama, "no_hp": r.no_hp, "alamat": r.alamat}
+            {"id": r.id, "nama": r.nama, "no_hp": r.no_hp, "alamat": r.alamat, "keterangan": r.keterangan}
             for r in rows
         ]
     }
@@ -63,27 +64,18 @@ def create_pelanggan(
     result = db.execute(
         text("""
             INSERT INTO pelanggan (nama, no_hp, alamat, keterangan)
-            VALUES (:nama, :hp, :alamat, :ket)
+            VALUES (:nama, :hp, :alamat, :keterangan)
             RETURNING id
         """),
         {
             "nama": pelanggan.nama.strip(),
             "hp": no_hp or None,
             "alamat": pelanggan.alamat,
-            "ket": pelanggan.keterangan
+            "keterangan": pelanggan.keterangan
         }
     ).fetchone()
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'CREATE', 'pelanggan', :nama, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "nama": pelanggan.nama, "info": f"Tambah pelanggan {pelanggan.nama}"
-        }
-    )
+    log_action(db, user, 'CREATE', 'pelanggan', pelanggan.nama, f"Tambah pelanggan {pelanggan.nama}")
 
     db.commit()
     return {"message": "Pelanggan berhasil ditambahkan", "id": result.id}
@@ -120,28 +112,19 @@ def update_pelanggan(
 
     db.execute(
         text("""
-            UPDATE pelanggan SET nama = :nama, no_hp = :hp, alamat = :alamat, keterangan = :ket
+            UPDATE pelanggan SET nama = :nama, no_hp = :hp, alamat = :alamat, keterangan = :keterangan
             WHERE id = :id
         """),
         {
             "nama": pelanggan.nama.strip(),
             "hp": no_hp or None,
             "alamat": pelanggan.alamat,
-            "ket": pelanggan.keterangan,
+            "keterangan": pelanggan.keterangan,
             "id": pelanggan_id
         }
     )
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'UPDATE', 'pelanggan', :nama, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "nama": pelanggan.nama, "info": f"Update pelanggan {pelanggan.nama}"
-        }
-    )
+    log_action(db, user, 'UPDATE', 'pelanggan', pelanggan.nama, f"Update pelanggan {pelanggan.nama}")
 
     db.commit()
     return {"message": "Pelanggan berhasil diupdate"}

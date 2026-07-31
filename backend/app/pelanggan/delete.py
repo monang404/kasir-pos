@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/pelanggan", tags=["pelanggan"])
 check_access = RequireModule("pelanggan")
@@ -41,17 +42,7 @@ def delete_pelanggan(
 
     db.execute(text("DELETE FROM pelanggan WHERE id = :id"), {"id": pelanggan_id})
 
-    db.execute(
-        text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_id, target_info)
-            VALUES (:uid, :uname, :role, 'DELETE', 'pelanggan', :nama, :info)
-        """),
-        {
-            "uid": user["id"], "uname": user["username"], "role": user["role"],
-            "nama": pelanggan.nama,
-            "info": f"Hapus pelanggan {pelanggan.nama} (tidak ada transaksi)"
-        }
-    )
+    log_action(db, user, 'DELETE', 'pelanggan', pelanggan.nama, f"Hapus pelanggan {pelanggan.nama} (tidak ada transaksi)")
 
     db.commit()
     return {"message": f"Pelanggan '{pelanggan.nama}' berhasil dihapus"}

@@ -1,0 +1,363 @@
+# =============================================================================
+# 07_sesi7_validasi_logging_housekeeping.yaml — Sesi 7
+# =============================================================================
+# Rencana: "Addendum 29-36"  |  Lihat 00_index.yaml untuk urutan sesi lengkap.
+# Sesi paling independen -- task-task di sini bisa dikerjakan paralel dengan
+# sesi 3-6 oleh agent lain (severity Low/Medium, risiko regresi kecil),
+# KECUALI 7.6 (logging) yang sebaiknya lebih dulu karena task 4.5 & 5.3
+# menyinggungnya. Urutan file di dalam sesi ini TIDAK mencerminkan urutan
+# wajib eksekusi antar task lain (lihat depends_on tiap task).
+
+sesi_id: sesi_7
+judul: "Validasi, Logging & Housekeeping"
+status: pending
+depends_on_sesi: []
+
+tasks:
+  # ---------------------------------------------------------------------
+  - id: "7.1"
+    judul: "CheckoutRequest.pelanggan_id: int|None (bukan int = None)"
+    temuan_ref: [10]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/kasir/checkout_service.py   # line 19
+    masalah: |
+      `pelanggan_id: int = None` (bukan `int | None = None`). Dengan
+      Pydantic 2.13, `M(pelanggan_id=None)` -> ValidationError: Input should
+      be a valid integer. Kasus umum "transaksi tanpa pelanggan" yang
+      dikirim sebagai `"pelanggan_id": null` DITOLAK, padahal valid secara
+      bisnis (checkout tanpa memilih pelanggan adalah alur normal kasir).
+    solusi:
+      - "Ubah anotasi tipe `pelanggan_id: int | None = None`."
+      - "Grep field lain di codebase dengan pola `: int = None` atau `: str = None` (tanpa `| None`) yang mungkin punya bug sama tapi belum tercatat di laporan audit -- perbaiki sekalian jika ditemukan, catat di catatan task."
+    acceptance_criteria:
+      - "Checkout dengan `pelanggan_id: null` di request body berhasil (tidak 422)."
+      - "Checkout dengan pelanggan_id valid tetap berfungsi normal."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/kasir -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "No"
+      risk: Low
+      title_saran: "CheckoutRequest.pelanggan_id jadi int | None (Temuan 10)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.2"
+    judul: "Validasi role user lewat Pydantic field_validator (bukan ValueError manual)"
+    temuan_ref: [14]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/users/crud.py   # validate_role(), line 23-25, 34-36; dipanggil manual line 64, 97
+    masalah: |
+      validate_role() melempar ValueError biasa, dipanggil manual di
+      endpoint (bukan lewat field_validator Pydantic), dan TIDAK dibungkus
+      try/except di endpoint maupun exception handler global (main.py tidak
+      mendaftarkan handler untuk ValueError) -- role tidak valid menghasilkan
+      500 Internal Server Error alih-alih 422 dengan pesan jelas.
+    solusi:
+      - "Pindahkan logika validate_role() menjadi `@field_validator('role')` pada model Pydantic request user (create & update), mengikuti pola yang SUDAH ADA di PengeluaranBase.validate_kategori (cek file pengeluaran untuk contoh pola yang konsisten)."
+      - "Hapus pemanggilan manual validate_role() di endpoint (line 64, 97) -- validasi sekarang otomatis terjadi saat Pydantic parsing request body, menghasilkan 422 otomatis."
+    acceptance_criteria:
+      - "Request create/update user dengan role tidak valid menghasilkan 422 dengan pesan jelas, BUKAN 500."
+      - "Role valid tetap diterima seperti biasa."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/users -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Medium
+      breaking: "No"
+      risk: Low
+      title_saran: "Validasi role user via Pydantic field_validator (Temuan 14)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.3"
+    judul: "Import Excel: savepoint per baris, andalkan constraint unik DB"
+    temuan_ref: [19]
+    severity: Low
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/inventory/import_excel.py   # line 51-53 (existing_kodes in-memory), 58-108 (loop per baris), 89-103 (cek in-memory), 111-121 (activity_log insert)
+    masalah: |
+      Cache kode produk in-memory (existing_kodes) diambil SEKALI di awal,
+      dicek in-memory bukan mengandalkan constraint unik database. Tiap
+      baris dibungkus try/except Exception GENERIK yang menganggap error
+      hanya berlaku per baris -- padahal jika db.execute() gagal karena
+      pelanggaran constraint unik (mis. kode yang baru saja di-insert oleh
+      request lain), PostgreSQL menandai SELURUH transaksi sebagai aborted --
+      seluruh db.execute() berikutnya pada request yang sama (baris-baris
+      selanjutnya, maupun insert activity_log) ikut gagal tanpa penjelasan
+      bahwa itu penyebabnya.
+    solusi:
+      - "Andalkan constraint unik database (kode UNIQUE, lihat migrations/0001) sebagai sumber kebenaran akhir -- hapus/kurangi ketergantungan pada existing_kodes in-memory untuk deteksi duplikat (tetap boleh dipakai untuk deteksi duplikat DALAM file excel yang sama, tapi bukan terhadap database)."
+      - "Gunakan SAVEPOINT per baris (SQLAlchemy: `with db.begin_nested():` per baris) atau tangani IntegrityError secara eksplisit dengan rollback ke savepoint -- satu baris bermasalah tidak boleh meracuni transaksi keseluruhan."
+      - "Pastikan insert activity_log (line 111-121) di LUAR savepoint per-baris (harus tetap berhasil walau ada baris yang gagal di-import), atau pindahkan ke transaction terpisah."
+    acceptance_criteria:
+      - "Import Excel dengan 1 baris duplikat kode di tengah file -> baris duplikat tsb gagal DENGAN PESAN JELAS, baris-baris LAIN (sebelum & sesudahnya) tetap berhasil di-import."
+      - "activity_log tetap tercatat meski ada baris yang gagal."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/inventory -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Low
+      breaking: "No"
+      risk: Medium
+      title_saran: "Import Excel: savepoint per baris (Temuan 19)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.4"
+    judul: "Wajibkan alasan saat hapus batch dengan qty_sisa > 0"
+    temuan_ref: [20]
+    severity: Low
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/inventory/batch_crud.py   # hapus_batch(), line 102-148, khususnya 123-134
+    masalah: |
+      Batch dengan qty_sisa > 0 bisa dihapus permanen tanpa parameter alasan
+      wajib. Bandingkan dengan stock_adjustment.py yang mewajibkan
+      `alasan: str = Field(..., min_length=5, ...)` untuk pengurangan stok
+      sejenis -- tidak konsisten antara dua endpoint yang secara efek sama
+      (mengurangi/menghilangkan stok).
+    solusi:
+      - "Tambahkan parameter `alasan: str = Field(..., min_length=5)` ke request model hapus_batch, WAJIB diisi jika batch yang dihapus punya qty_sisa > 0 (boleh opsional jika qty_sisa == 0, karena itu bukan lagi 'menghilangkan stok')."
+      - "Sertakan alasan tsb ke activity_log saat batch dihapus, konsisten dengan pola stock_adjustment.py."
+    acceptance_criteria:
+      - "Hapus batch dengan qty_sisa > 0 TANPA alasan -> ditolak (422)."
+      - "Hapus batch dengan qty_sisa == 0 tetap bisa tanpa alasan (perilaku lama untuk batch kosong tidak berubah)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/inventory -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Low
+      breaking: "Yes"
+      risk: Low
+      title_saran: "Wajibkan alasan hapus batch dengan sisa stok (Temuan 20)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.5"
+    judul: "Konsolidasi activity log lewat helper log_action() yang sudah ada"
+    temuan_ref: [21]
+    severity: Low
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/activity_log/logger.py   # log_action(), line 15-55 -- SUDAH ada, sekarang jadi dead code
+        - backend/app/users/delete.py            # line 51-61, try/except: pass
+        - backend/app/users/crud.py               # line 122-132
+        - backend/app/backup/create_list_download.py  # line 102-113
+        - backend/app/backup/restore_delete.py          # line 77-88, 114-125
+        - backend/app/activity_log/list_log.py          # line 108-118
+        - backend/app/kasir/checkout_service.py          # line 174-184 -- TIDAK dibungkus try/except sama sekali (paling berisiko, kegagalan log bisa membatalkan transaksi bisnis utama)
+        - backend/app/inventory/produk_crud.py            # line 91-100 -- idem, tidak dibungkus
+    masalah: |
+      log_action() di activity_log/logger.py dirancang EKSPLISIT sebagai
+      helper best-effort (kegagalan logging tidak boleh membatalkan operasi
+      bisnis), TAPI tidak diimpor/dipanggil di manapun -- dead code. Sebagai
+      gantinya, tiap modul menulis ulang raw SQL INSERT ke activity_log
+      dengan penanganan error TIDAK KONSISTEN: sebagian try/except: pass,
+      sementara checkout_service.py dan produk_crud.py SAMA SEKALI TIDAK
+      dibungkus -- kegagalan insert log di kedua file ini berpotensi
+      MEMBATALKAN transaksi bisnis utama (checkout gagal total hanya karena
+      activity_log gagal ditulis).
+    solusi:
+      - "Review implementasi log_action() di logger.py -- pastikan signature-nya cukup generik untuk dipakai semua pemanggil (parameter: db, user_id, username, role, aksi, modul, target_id, target_info)."
+      - "Ganti SELURUH raw SQL INSERT INTO activity_log di 7 file pemanggil dengan pemanggilan log_action(), termasuk (PALING PENTING) checkout_service.py dan produk_crud.py yang sebelumnya tidak dibungkus sama sekali."
+      - "Hapus try/except: pass yang tersebar -- log_action() sendiri yang menangani best-effort secara terpusat, pemanggil tidak perlu try/except lagi."
+    acceptance_criteria:
+      - "Simulasikan activity_log INSERT gagal (mis. mock db.execute untuk raise saat query mengandung 'activity_log') pada CHECKOUT -> transaksi checkout tetap berhasil (best-effort logging tidak membatalkan bisnis utama)."
+      - "Tidak ada lagi raw `INSERT INTO activity_log` tersebar di luar logger.py (grep untuk verifikasi)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Low
+      breaking: "No"
+      risk: Medium
+      title_saran: "Konsolidasi activity log lewat log_action() (Temuan 21)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.6"
+    judul: "Ganti print() dengan modul logging standar"
+    temuan_ref: [22]
+    severity: Low
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/app/activity_log/logger.py   # line 54
+        - backend/app/ml/job_infra.py            # line 83
+      buat_baru_opsional:
+        - "backend/app/logging_config.py -- setup basicConfig/handler terpusat, dipanggil sekali dari main.py saat startup"
+    masalah: |
+      Tidak ada satu pun `import logging` di seluruh backend/app -- error
+      hanya dicetak ke stdout via print(), tanpa level severity, timestamp
+      terstruktur, atau kemungkinan diarahkan ke sistem monitoring/log
+      aggregator.
+    solusi:
+      - "Setup konfigurasi logging terpusat (level, format, handler) dipanggil sekali di app startup (main.py) atau lewat modul logging_config.py baru."
+      - "Ganti print() di logger.py dan job_infra.py dengan `logging.getLogger(__name__).exception(...)` atau `.error(...)` sesuai konteks."
+      - "Task ini jadi PRASYARAT untuk task 4.5, 5.3, 6.2 yang juga menyinggung penggantian print()/exception handling -- kerjakan task ini LEBIH DULU dari ketiganya jika urutan eksekusi bisa diatur bebas."
+    acceptance_criteria:
+      - "grep -rn \"print(\" backend/app -- tidak ada lagi pemakaian print() untuk pelaporan error (print() untuk output CLI script one-off di scripts/ dikecualikan, bukan bagian app)."
+      - "Log muncul dengan level & timestamp terstruktur saat dijalankan."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Low
+      breaking: "No"
+      risk: Low
+      title_saran: "Ganti print() dengan modul logging standar (Temuan 22)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.7"
+    judul: "Hapus dependency passlib[bcrypt] yang tidak terpakai"
+    temuan_ref: [26]
+    severity: Info
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - backend/requirements.txt
+    masalah: |
+      `passlib[bcrypt]` terpasang di requirements.txt tapi tidak pernah
+      diimpor di backend/app manapun -- hashing password diimplementasikan
+      manual via hashlib.pbkdf2_hmac di auth/security.py.
+    solusi:
+      - "Hapus baris `passlib[bcrypt]` dari requirements.txt (opsi yang lebih sederhana & konsisten dengan implementasi pbkdf2_hmac yang sudah berjalan -- TIDAK disarankan migrasi ke passlib/bcrypt sekarang karena akan invalidate semua hash password lama yang sudah tersimpan, di luar scope perbaikan bug)."
+    acceptance_criteria:
+      - "requirements.txt tidak lagi mencantumkan passlib."
+      - "pip install -r backend/requirements.txt tetap berhasil, aplikasi tetap jalan normal."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/auth -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Info
+      breaking: "No"
+      risk: Low
+      title_saran: "Hapus dependency passlib[bcrypt] tak terpakai (Temuan 26)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.8"
+    judul: "Keputusan & dokumentasi status service Redis di docker-compose"
+    temuan_ref: [27]
+    severity: Info
+    status: pending
+    depends_on: ["4.3"]
+    files:
+      edit:
+        - docker-compose.yml   # hanya jika keputusan = hapus Redis
+        - docs/PRD.md            # dokumentasikan keputusan di §15 Known Issues
+    masalah: |
+      Service redis & REDIS_URL disediakan di docker-compose.yml tapi
+      sebelum task 4.3, tidak ada satu pun kode yang memakainya.
+    solusi:
+      - "Task ini OTOMATIS SELESAI secara substansi begitu task 4.3 (lockout pakai Redis) selesai -- Redis sekarang benar-benar dipakai."
+      - "Yang perlu dikerjakan di sini HANYA: dokumentasikan keputusan 'Redis dipakai untuk lockout login' di docs/PRD.md §15 Known Issues (atau bagian arsitektur yang sesuai), supaya jelas bagi pembaca berikutnya kenapa service Redis ada di docker-compose.yml."
+      - "Jika karena alasan tertentu task 4.3 TIDAK jadi memakai Redis (keputusan berubah), maka task ini berubah jadi: hapus service redis & REDIS_URL dari docker-compose.yml sepenuhnya."
+    acceptance_criteria:
+      - "docs/PRD.md menjelaskan dengan jelas untuk apa service Redis dipakai (atau service tsb sudah dihapus jika keputusannya begitu)."
+      - "Tidak ada lagi infrastruktur 'disediakan tapi tidak dipakai' yang tidak terdokumentasi."
+    test:
+      command: "N/A -- dokumentasi/konfigurasi, tidak ada test kode."
+    patchlog:
+      type: Docs
+      area: Infrastructure
+      priority: Info
+      breaking: "No"
+      risk: Low
+      title_saran: "Dokumentasikan pemakaian Redis untuk lockout (Temuan 27)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.9"
+    judul: "Perbaiki unit SESSION_TIMEOUT di docker-compose.yml"
+    temuan_ref: [33]
+    severity: Medium
+    status: pending
+    depends_on: []
+    files:
+      edit:
+        - docker-compose.yml   # line 34, SESSION_TIMEOUT: "3600"
+    masalah: |
+      backend/app/auth/security.py membaca SESSION_TIMEOUT sebagai MENIT
+      (`SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT", "60"))`),
+      dan docs/PRD.md mengonfirmasi kontrak ini (default 60 MENIT). Tapi
+      docker-compose.yml men-set `SESSION_TIMEOUT: "3600"` -- nilai khas
+      untuk satuan DETIK (3600 detik = 1 jam). Karena kode membaca ini
+      sebagai menit, hasil sebenarnya adalah 3600 MENIT = 60 JAM masa
+      berlaku token, alih-alih 1 jam yang tampaknya dimaksud, memperbesar
+      jendela risiko bila token dicuri/bocor.
+    solusi:
+      - "Ubah nilai di docker-compose.yml menjadi `SESSION_TIMEOUT: \"60\"` (60 menit, sesuai kontrak PRD & default kode)."
+      - "PERTIMBANGAN TAMBAHAN (opsional, disebut di laporan audit sebagai solusi jangka panjang): ganti nama env var jadi eksplisit satuannya (mis. SESSION_TIMEOUT_MINUTES) di security.py DAN docker-compose.yml sekaligus, supaya kesalahan unit yang sama tidak terulang di masa depan -- jika dilakukan, ini breaking change untuk deployment lain yang mungkin sudah set SESSION_TIMEOUT (bukan SESSION_TIMEOUT_MINUTES) secara manual, dokumentasikan di changelog."
+    acceptance_criteria:
+      - "Token JWT pada deployment default (docker-compose bawaan repo) valid 60 menit, bukan 60 jam (uji: cek field exp di token yang di-decode setelah login)."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/auth -q"
+    patchlog:
+      type: Fix
+      area: Infrastructure
+      priority: Medium
+      breaking: "No"
+      risk: Low
+      title_saran: "Perbaiki unit SESSION_TIMEOUT di docker-compose.yml (Temuan 33)"
+
+  # ---------------------------------------------------------------------
+  - id: "7.10"
+    judul: "datetime.now() naive vs UTC pada agregasi dashboard"
+    temuan_ref: [36]
+    severity: Low
+    status: pending
+    depends_on: ["2.3"]
+    files:
+      edit:
+        - backend/app/dashboard/stats.py    # line 26, 56-60
+        - backend/app/dashboard/charts.py   # line 15, 62, 96-99
+      infra_terkait:
+        - "Dockerfile backend -- pertimbangkan set ENV TZ=UTC eksplisit"
+    masalah: |
+      Agregasi dashboard ("bulan berjalan", "7 hari terakhir") memakai
+      datetime.now() NAIVE (mengikuti timezone sistem tempat proses Python
+      berjalan), sementara penulisan timestamp transaksi SELALU memakai
+      datetime.now(timezone.utc) eksplisit (checkout_service.py, fifo_service.py,
+      batch_crud.py, dst.). Jika container backend tidak dikonfigurasi
+      eksplisit ke UTC dan berjalan di server dengan timezone lain (mis.
+      WIB/UTC+7, relevan untuk operasional toko di Indonesia), transaksi
+      yang dibuat menjelang tengah malam bisa masuk ke "hari"/"bulan" yang
+      berbeda antara data tersimpan (UTC) dan agregasi dashboard (lokal
+      container) -- perbandingan "bulan ini vs bulan lalu" bisa keliru di
+      sekitar pergantian bulan.
+    solusi:
+      - "Ganti seluruh `datetime.now()` di kedua file dengan `datetime.now(timezone.utc)`, konsisten dengan seluruh codebase lain."
+      - "Tambahkan `ENV TZ=UTC` di backend/Dockerfile agar container selalu berjalan UTC terlepas dari host, sebagai lapisan tambahan (defense in depth) di luar fix kode Python."
+      - "Task ini SENGAJA dipisah dari task 2.3 (migrasi strftime() di file yang sama) karena beda root cause -- kerjakan SETELAH 2.3 supaya tidak bentrok menyunting baris yang sama secara bersamaan."
+    acceptance_criteria:
+      - "Kedua file tidak lagi memanggil datetime.now() tanpa argumen timezone."
+      - "Uji dengan container di-set TZ non-UTC (mis. Asia/Jakarta) secara sengaja -- agregasi 'bulan ini' tetap konsisten dengan data yang tersimpan (UTC), tidak bergeser."
+    test:
+      command: "PYTHONPATH=backend pytest tests/backend/app/dashboard -q"
+    patchlog:
+      type: Fix
+      area: Backend
+      priority: Low
+      breaking: "No"
+      risk: Low
+      title_saran: "datetime.now(timezone.utc) konsisten di dashboard (Temuan 36)"

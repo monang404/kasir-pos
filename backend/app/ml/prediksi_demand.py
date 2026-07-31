@@ -18,7 +18,7 @@ def compute_prediksi_demand(db: Session):
         FROM transaksi_detail td
         JOIN transaksi t ON td.transaksi_id = t.id
         JOIN produk p ON td.produk_id = p.id
-        WHERE date(t.tanggal) >= date('now', '-30 days') AND td.is_bonus = 0
+        WHERE date(t.tanggal) >= CURRENT_DATE - INTERVAL '30 days' AND td.is_bonus = FALSE
         GROUP BY p.id, p.kode, p.nama
     """)).fetchall()
     
@@ -26,7 +26,7 @@ def compute_prediksi_demand(db: Session):
         SELECT td.produk_id, SUM(td.qty) as qty_prev
         FROM transaksi_detail td
         JOIN transaksi t ON td.transaksi_id = t.id
-        WHERE date(t.tanggal) >= date('now', '-60 days') AND date(t.tanggal) < date('now', '-30 days') AND td.is_bonus = 0
+        WHERE date(t.tanggal) >= CURRENT_DATE - INTERVAL '60 days' AND date(t.tanggal) < CURRENT_DATE - INTERVAL '30 days' AND td.is_bonus = FALSE
         GROUP BY td.produk_id
     """)).fetchall()
     

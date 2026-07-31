@@ -31,7 +31,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
     # 2. Ambil user dari DB
     user = db.execute(
-        text("SELECT id, username, password_hash, role, is_active, nama_lengkap FROM users WHERE LOWER(username) = :username"),
+        text("SELECT id, username, password_hash, role, is_active, nama_lengkap, token_version FROM users WHERE LOWER(username) = :username"),
         {"username": username}
     ).fetchone()
     
@@ -64,7 +64,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     db.commit()
 
     # Buat JWT token
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_access_token(data={"sub": user.username, "version": user.token_version})
     
     return {
         "access_token": access_token,

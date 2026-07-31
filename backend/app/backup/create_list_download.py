@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth.require_role import RequireModule
 from app.auth.session import get_current_user
 from app.database import DATABASE_URL, get_db
+from app.activity_log.logger import log_action
 
 router = APIRouter(prefix="/backup", tags=["backup"])
 check_access = RequireModule("backup")
@@ -45,21 +46,29 @@ def do_backup(label: str = "") -> str:
     # Format: postgresql://user:pass@host:port/dbname
     url = DATABASE_URL
     # Buat environment vars untuk pg_dump
-    import re
-    match = re.match(r"postgresql://([^:]+):([^@]+)@([^:/]+):(\d+)/(.+)", url)
-    if not match:
-        raise ValueError("Format DATABASE_URL tidak dikenali")
+    from sqlalchemy.engine.url import make_url
+    try:
+        parsed_url = make_url(url)
+    except Exception as e:
+        raise ValueError(f"Format DATABASE_URL tidak dikenali: {e}")
 
-    pg_user, pg_pass, pg_host, pg_port, pg_db = match.groups()
+    pg_user = parsed_url.username or "postgres"
+    pg_pass = parsed_url.password or ""
+    pg_host = parsed_url.host or "localhost"
+    pg_port = str(parsed_url.port or 5432)
+    pg_db = parsed_url.database or "postgres"
 
     env = os.environ.copy()
     env["PGPASSWORD"] = pg_pass
 
-    # Jalankan pg_dump
-    result = subprocess.run(
-        ["pg_dump", "-h", pg_host, "-p", pg_port, "-U", pg_user, "-F", "p", pg_db],
-        capture_output=True, text=True, env=env
-    )
+    try:
+        # Jalankan pg_dump
+        result = subprocess.run(
+            ["pg_dump", "-h", pg_host, "-p", pg_port, "-U", pg_user, "-F", "p", pg_db],
+            capture_output=True, text=True, env=env, timeout=120
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Proses backup melebihi batas waktu (120 detik).")
 
     if result.returncode != 0:
         raise RuntimeError(f"pg_dump gagal: {result.stderr}")
@@ -95,22 +104,17 @@ def create_backup(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    filepath = do_backup(label or "")
-    filename = os.path.basename(filepath)
-    size = format_filesize(os.path.getsize(filepath))
-
     try:
-        db.execute(text("""
-            INSERT INTO activity_log (user_id, username, role, aksi, modul, target_info)
-            VALUES (:uid, :uname, :role, 'CREATE', 'backup', :info)
-        """), {
-            "uid": current_user.get("id"), "uname": current_user.get("username"),
-            "role": current_user.get("role"),
-            "info": f"Backup dibuat: {filename} ({size})"
-        })
-        db.commit()
-    except Exception:
-        pass
+        filepath = do_backup(label or "")
+        filename = os.path.basename(filepath)
+        size = format_filesize(os.path.getsize(filepath))
+    except Exception as e:
+        import logging
+        logging.exception(e)
+        raise HTTPException(status_code=500, detail="Gagal membuat backup. Silakan coba lagi.")
+
+    log_action(db, current_user, 'CREATE', 'backup', '', f"Backup dibuat: {filename} ({size})")
+    db.commit()
 
     return {"message": "Backup berhasil dibuat", "filename": filename, "size": size}
 

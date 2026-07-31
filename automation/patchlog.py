@@ -3,7 +3,9 @@
 Module: automation.patchlog
 
 Purpose:
-    Baca/tulis docs/PATCHLOG.md terstruktur — format v2 (field-based).
+    Baca/tulis PATCHLOG.md (root proyek) terstruktur — format v2 (field-based).
+    Path sebenarnya diambil dari automation/docops.config.json (lihat
+    automation/docops_config.py), bukan di-hardcode di sini.
     ID PATCH-YYYY-MM-DD-NNN, NNN = total entries berjalan (bukan reset per
     hari), tetap immutable begitu ditulis.
 
@@ -77,7 +79,13 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-PATCHLOG = PROJECT_ROOT / "docs" / "PATCHLOG.md"
+from docops_config import PATCHLOG_PATH, AREA_PREFIX_MAP  # noqa: E402
+
+# PATCH-2026-07-31: path & area map sebelumnya di-hardcode di sini (docs/PATCHLOG.md
+# + AREA_PREFIX_MAP proyek lain seperti web/static/js/, engine/, core/). Sekarang
+# diambil dari automation/docops.config.json (lewat docops_config.py) supaya script
+# ini generik dan bisa dipakai ulang di proyek lain tanpa disunting.
+PATCHLOG = PATCHLOG_PATH
 
 # ---------------------------------------------------------------------------
 # Parsing — format v2
@@ -288,25 +296,6 @@ def _git(args: list[str]) -> str:
     except Exception:
         pass
     return "-"
-
-
-AREA_PREFIX_MAP = [
-    ("web/static/js/", "Frontend"),
-    ("web/static/css/", "Frontend"),
-    ("web/static/", "Frontend"),
-    ("server/", "Backend"),
-    ("engine/", "Backend"),
-    ("core/", "Backend"),
-    ("adapters/", "Backend"),
-    ("persistence/", "Backend"),
-    ("services/", "Backend"),
-    ("plugins/", "Backend"),
-    ("bootstrap/", "Backend"),
-    ("automation/", "Tooling"),
-    ("docs/", "Docs"),
-    ("tests/", "Test"),
-    ("launcher/", "Packaging"),
-]
 
 
 def suggest_area(files: list[str]):

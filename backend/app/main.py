@@ -5,6 +5,8 @@ Entry point FastAPI. Modul bisnis (auth, kasir, inventory, dll.) ditambahkan
 di task 2-9 sesuai implementasi_plan/. File ini sengaja minimal: hanya health
 check untuk memverifikasi CI (lint + test) berjalan di atas scaffold kosong.
 """
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,12 +18,21 @@ from app.inventory.produk_crud import router as inv_produk_router
 from app.inventory.stock_adjustment import router as inv_adjustment_router
 from app.kasir.checkout_endpoint import router as checkout_router
 from app.kasir.list_produk import router as list_produk_router
+from app.logging_config import setup_logging
+
+setup_logging()
 
 app = FastAPI(title="kasir-POS API", version="0.0.1")
 
+# CORS_ORIGINS: daftar origin diizinkan, dipisah koma (mis. "http://localhost:5173,https://kasir.contoh.com").
+# Default hanya localhost dev. "*" TIDAK boleh dipakai bersama allow_credentials=True
+# (ditolak oleh spec CORS di browser modern & membuka celah credential leakage).
+_cors_origins_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+CORS_ORIGINS = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

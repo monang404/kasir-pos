@@ -45,7 +45,9 @@ def checkout_endpoint(
         )
     except Exception as e:
         db.rollback()
+        import logging
+        logging.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Terjadi kesalahan internal: {e!s}"
+            detail="Terjadi kesalahan internal. Silakan coba lagi."
         )
