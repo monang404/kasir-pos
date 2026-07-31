@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { apiFetch } from '../lib/apiFetch';
 
 interface Pengeluaran {
   id: number;
@@ -43,18 +44,25 @@ const PengeluaranPage: React.FC = () => {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [konfirmasiHapusId, setKonfirmasiHapusId] = useState<number | null>(null);
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+  // UI-017: debounce searchQuery 300ms
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
+
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (searchQuery) params.set('q', searchQuery);
+      if (debouncedSearch) params.set('q', debouncedSearch);
       if (bulanFilter) params.set('bulan', bulanFilter);
       if (kategoriFilter) params.set('kategori', kategoriFilter);
 
-      const res = await fetch(`http://localhost:8000/pengeluaran/?${params}`, { headers });
+      const res = await apiFetch(`/pengeluaran/?${params}`);
       if (res.ok) {
         const result = await res.json();
         setData(result.data || []);
@@ -67,21 +75,21 @@ const PengeluaranPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, [searchQuery, bulanFilter, kategoriFilter]);
+  useEffect(() => { fetchData(); }, [debouncedSearch, bulanFilter, kategoriFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSubmitLoading(true);
     try {
-      const url = editingId ? `http://localhost:8000/pengeluaran/${editingId}` : 'http://localhost:8000/pengeluaran/';
+      const url = editingId ? `/pengeluaran/${editingId}` : '/pengeluaran/';
       const method = editingId ? 'PUT' : 'POST';
       const body = {
         ...formData,
         jumlah: parseFloat(formData.jumlah)
       };
 
-      const res = await fetch(url, { method, headers, body: JSON.stringify(body) });
+      const res = await apiFetch(url, { method, body: JSON.stringify(body) });
       if (res.ok) {
         setShowForm(false);
         fetchData();
@@ -97,7 +105,7 @@ const PengeluaranPage: React.FC = () => {
   const handleHapus = async (id: number) => {
     setDeletingId(id);
     try {
-      const res = await fetch(`http://localhost:8000/pengeluaran/${id}`, { method: 'DELETE', headers });
+      const res = await apiFetch(`/pengeluaran/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setKonfirmasiHapusId(null);
         fetchData();

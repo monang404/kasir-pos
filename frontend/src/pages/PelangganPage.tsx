@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DetailPelangganDialog from '../components/pelanggan/DetailPelangganDialog';
+import { useToast } from '../components/ui/ToastContext';
+import { apiFetch } from '../lib/apiFetch';
 
 interface Pelanggan {
   id: number;
@@ -22,16 +24,15 @@ const PelangganPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [konfirmasiHapusId, setKonfirmasiHapusId] = useState<number | null>(null);
+  const { showToast } = useToast();
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       if (searchQuery) params.set('q', searchQuery);
-      const res = await fetch(`http://localhost:8000/pelanggan/?${params}`, { headers });
+      const res = await apiFetch(`/pelanggan/?${params}`);
       if (res.ok) {
         const result = await res.json();
         setData(result.data || []);
@@ -50,9 +51,9 @@ const PelangganPage: React.FC = () => {
     setErrorMsg('');
     setSubmitLoading(true);
     try {
-      const url = editingId ? `http://localhost:8000/pelanggan/${editingId}` : 'http://localhost:8000/pelanggan/';
+      const url = editingId ? `/pelanggan/${editingId}` : '/pelanggan/';
       const method = editingId ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, headers, body: JSON.stringify(formData) });
+      const res = await apiFetch(url, { method, body: JSON.stringify(formData) });
       if (res.ok) {
         setShowForm(false);
         fetchData();
@@ -68,13 +69,13 @@ const PelangganPage: React.FC = () => {
   const handleHapus = async (id: number) => {
     setDeletingId(id);
     try {
-      const res = await fetch(`http://localhost:8000/pelanggan/${id}`, { method: 'DELETE', headers });
+      const res = await apiFetch(`/pelanggan/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setKonfirmasiHapusId(null);
         fetchData();
       } else {
         const result = await res.json();
-        alert(result.detail || 'Gagal menghapus pelanggan');
+        showToast(result.detail || 'Gagal menghapus pelanggan', 'error');
         setKonfirmasiHapusId(null);
       }
     } finally {
@@ -167,9 +168,18 @@ const PelangganPage: React.FC = () => {
             {isLoading ? (
               <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center' }}>Loading...</td></tr>
             ) : data.length === 0 ? (
-              <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Tidak ada data pelanggan</td></tr>
+              <tr><td colSpan={4} style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                <div style={{ marginBottom: '0.75rem', fontSize: '1.5rem' }}>👤</div>
+                <div style={{ marginBottom: '0.75rem' }}>Belum ada data pelanggan</div>
+                <button
+                  onClick={() => { setEditingId(null); setFormData({ nama: '', no_hp: '', alamat: '', keterangan: '' }); setErrorMsg(''); setShowForm(true); }}
+                  style={{ padding: '0.5rem 1.25rem', backgroundColor: '#4f46e5', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  + Tambah Pelanggan Pertama
+                </button>
+              </td></tr>
             ) : data.map(p => (
-              <tr key={p.id} style={{ borderBottom: '1px solid #1e1e4a', cursor: 'pointer' }} onDoubleClick={() => setSelectedPelanggan({ id: p.id, nama: p.nama })}>
+              <tr key={p.id} style={{ borderBottom: '1px solid #1e1e4a', cursor: 'default' }}>
                 <td style={{ padding: '1rem', fontWeight: 'bold' }}>{p.nama}</td>
                 <td style={{ padding: '1rem', color: '#94a3b8' }}>{p.no_hp || '-'}</td>
                 <td style={{ padding: '1rem', color: '#94a3b8' }}>{p.alamat || '-'}</td>
@@ -211,9 +221,6 @@ const PelangganPage: React.FC = () => {
             ))}
           </tbody>
         </table>
-        <div style={{ padding: '1rem', color: '#64748b', fontSize: '0.875rem', textAlign: 'center', backgroundColor: '#0d0d2e' }}>
-          Tips: Double-click pada baris pelanggan untuk melihat riwayat transaksinya.
-        </div>
       </div>
 
       {/* DIALOG RIWAYAT TRANSAKSI */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -6,6 +6,14 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [expiredWarning, setExpiredWarning] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('auth_expired')) {
+      setExpiredWarning(true);
+      sessionStorage.removeItem('auth_expired');
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +72,17 @@ const Login: React.FC = () => {
           <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 'bold' }}>◈ SUPER APP</h1>
           <p style={{ margin: '0.5rem 0 0 0', color: '#94a3b8' }}>Masuk untuk melanjutkan</p>
         </div>
+        
+        {expiredWarning && (
+          <div style={{
+            backgroundColor: '#2e1d0d', border: '1px solid #78350f', color: '#fb923c',
+            padding: '0.75rem 1rem', borderRadius: '6px', marginBottom: '1.25rem',
+            fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
+          }}>
+            <span>⚠</span>
+            <span>Sesi habis atau tidak valid. Silakan login ulang.</span>
+          </div>
+        )}
         
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div>

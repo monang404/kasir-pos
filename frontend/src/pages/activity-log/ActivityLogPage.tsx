@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../../components/ui/ToastContext';
+import { apiFetch } from '../../lib/apiFetch';
 
 const AKSI_COLORS: Record<string, { bg: string; text: string }> = {
   CREATE:      { bg: '#14532d', text: '#86efac' },
@@ -26,10 +28,10 @@ interface LogEntry {
 const ActivityLogPage: React.FC = () => {
   const [data, setData] = useState<LogEntry[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
   const [modulFilter, setModulFilter] = useState('');
   const [aksiFilter, setAksiFilter] = useState('');
   const [startDate, setStartDate] = useState(() => {
@@ -42,8 +44,6 @@ const ActivityLogPage: React.FC = () => {
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -54,7 +54,7 @@ const ActivityLogPage: React.FC = () => {
     if (endDate) params.set('end_date', endDate);
 
     try {
-      const res = await fetch(`http://localhost:8000/activity-log/?${params}`, { headers });
+      const res = await apiFetch(`/activity-log/?${params}`);
       if (res.ok) {
         const result = await res.json();
         setData(result.data || []);
@@ -68,10 +68,10 @@ const ActivityLogPage: React.FC = () => {
   useEffect(() => { fetchData(); }, [modulFilter, aksiFilter, startDate, endDate]);
 
   const handlePurge = async () => {
-    const res = await fetch('http://localhost:8000/activity-log/purge', { method: 'DELETE', headers });
+    const res = await apiFetch('/activity-log/purge', { method: 'DELETE' });
     if (res.ok) {
       const r = await res.json();
-      alert(r.message);
+      showToast(r.message, 'success');
       setShowPurgeConfirm(false);
       fetchData();
     }

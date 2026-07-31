@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../../lib/apiFetch';
 
 interface Batch {
   id: number;
@@ -31,14 +32,13 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
   const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
 
   const fetchBatch = async () => {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`http://localhost:8000/inventory/batch/${produkId}`, { headers });
+      const res = await apiFetch(`/inventory/batch/${produkId}`);
       if (res.ok) {
         setData(await res.json());
       } else {
@@ -60,9 +60,8 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
     if (!newQty || !newHargaBeli) { setErrorMsg('Qty dan Harga Beli wajib diisi'); return; }
     setSubmitLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/inventory/batch/', {
+      const res = await apiFetch('/inventory/batch/', {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           produk_id: produkId,
           qty: parseInt(newQty),
@@ -88,9 +87,8 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
     setSubmitLoading(true);
     try {
       const body = qtySisa > 0 ? JSON.stringify({ alasan: alasanHapus }) : undefined;
-      const res = await fetch(`http://localhost:8000/inventory/batch/${batchId}`, { 
+      const res = await apiFetch(`/inventory/batch/${batchId}`, { 
         method: 'DELETE', 
-        headers,
         body
       });
       if (res.ok) {
@@ -118,7 +116,7 @@ const BatchProdukDialog: React.FC<Props> = ({ produkId, onClose, onChanged }) =>
   };
 
   return (
-    <div style={overlayStyle} onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-label="Riwayat Batch Stok" style={overlayStyle}>
       <div style={dialogStyle} onClick={e => e.stopPropagation()}>
         {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

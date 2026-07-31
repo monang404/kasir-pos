@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -7,6 +7,7 @@ import {
   useLocation,
   Link,
 } from "react-router-dom";
+import { ToastProvider } from "./components/ui/ToastContext";
 
 import Login from "./pages/login";
 import DashboardPage from "./pages/DashboardPage";
@@ -86,61 +87,109 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const user = getCurrentUser();
   const allowedModules = user ? ACCESS_MATRIX[user.role.toLowerCase()] || [] : [];
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const NAV_ICONS: Record<string, string> = {
+    '/dashboard': '◈', '/kasir': '⊕', '/inventory': '□', '/pelanggan': '◉',
+    '/transaksi': '≡', '/pengeluaran': '◎', '/laporan': '▤', '/ml': '◆',
+    '/users': '⊛', '/activity-log': '◌', '/backup': '⊞',
+  };
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#0a0a2a" }}>
+      {/* Sidebar */}
       <aside
         style={{
-          width: "230px",
+          width: sidebarOpen ? "230px" : "56px",
+          minWidth: sidebarOpen ? "230px" : "56px",
           backgroundColor: "#11113a",
           borderRight: "1px solid #2d2d5f",
-          padding: "1.5rem 0",
+          padding: "1rem 0",
           display: "flex",
           flexDirection: "column",
+          transition: "width 0.2s ease, min-width 0.2s ease",
+          overflow: "hidden",
         }}
       >
-        <div style={{ padding: "0 1.5rem 1.5rem", color: "#e2e8f0", fontWeight: "bold", fontSize: "1.1rem" }}>
-          kasir-POS
+        {/* Header + toggle */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: sidebarOpen ? "space-between" : "center", padding: sidebarOpen ? "0 1rem 1rem" : "0 0 1rem", minWidth: sidebarOpen ? "230px" : "56px" }}>
+          {sidebarOpen && (
+            <span style={{ color: "#e2e8f0", fontWeight: "bold", fontSize: "1rem", whiteSpace: "nowrap" }}>kasir-POS</span>
+          )}
+          <button
+            onClick={() => setSidebarOpen(v => !v)}
+            aria-label={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
+            title={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
+            style={{
+              background: "none", border: "none", color: "#94a3b8", cursor: "pointer",
+              padding: "0.25rem", fontSize: "1.1rem", lineHeight: 1,
+              transition: "color 0.15s",
+            }}
+            onMouseOver={e => (e.currentTarget.style.color = "#e2e8f0")}
+            onMouseOut={e => (e.currentTarget.style.color = "#94a3b8")}
+          >
+            {sidebarOpen ? "←" : "→"}
+          </button>
         </div>
-        <nav style={{ flex: 1 }}>
+
+        <nav style={{ flex: 1, overflowX: "hidden" }}>
           {NAV_ITEMS.filter((item) => allowedModules.includes(item.module)).map((item) => {
             const active = location.pathname.startsWith(item.path);
+            const icon = NAV_ICONS[item.path] || "·";
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                title={!sidebarOpen ? item.label : undefined}
+                aria-label={item.label}
                 style={{
-                  display: "block",
-                  padding: "0.75rem 1.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  padding: sidebarOpen ? "0.75rem 1.5rem" : "0.75rem 0",
+                  justifyContent: sidebarOpen ? "flex-start" : "center",
                   color: active ? "#38bdf8" : "#94a3b8",
                   backgroundColor: active ? "#1e1e4a" : "transparent",
                   textDecoration: "none",
                   fontSize: "0.9rem",
                   borderLeft: active ? "3px solid #38bdf8" : "3px solid transparent",
+                  whiteSpace: "nowrap",
+                  transition: "background-color 0.15s, color 0.15s",
                 }}
               >
-                {item.label}
+                <span style={{ fontSize: "1rem", flexShrink: 0 }}>{icon}</span>
+                {sidebarOpen && item.label}
               </Link>
             );
           })}
         </nav>
-        <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid #2d2d5f", color: "#94a3b8" }}>
-          <div style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>
-            {user?.nama_lengkap} <span style={{ color: "#64748b" }}>({user?.role})</span>
-          </div>
+
+        <div style={{ padding: sidebarOpen ? "1rem 1.5rem" : "1rem 0", borderTop: "1px solid #2d2d5f", color: "#94a3b8", display: "flex", flexDirection: "column", alignItems: sidebarOpen ? "flex-start" : "center" }}>
+          {sidebarOpen && (
+            <div style={{ fontSize: "0.85rem", marginBottom: "0.5rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "180px" }}>
+              {user?.nama_lengkap} <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>({user?.role})</span>
+            </div>
+          )}
           <button
             onClick={logout}
+            aria-label="Logout"
+            title="Logout"
             style={{
-              width: "100%",
-              padding: "0.5rem",
+              width: sidebarOpen ? "100%" : "36px",
+              height: sidebarOpen ? "auto" : "36px",
+              padding: sidebarOpen ? "0.5rem" : "0",
               backgroundColor: "#7f1d1d",
               color: "#fca5a5",
               border: "none",
               borderRadius: "4px",
               cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: sidebarOpen ? "0.875rem" : "1rem",
             }}
           >
-            Logout
+            {sidebarOpen ? "Logout" : "⊗"}
           </button>
         </div>
       </aside>
@@ -152,7 +201,9 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 function Protected({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedRoute>
-      <AppLayout>{children}</AppLayout>
+      <ToastProvider>
+        <AppLayout>{children}</AppLayout>
+      </ToastProvider>
     </ProtectedRoute>
   );
 }

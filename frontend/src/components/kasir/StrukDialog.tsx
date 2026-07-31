@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { CartItem } from './AddToCartDialog';
+import { useToast } from '../ui/ToastContext';
 
 interface TransaksiInfo {
   kode: string;
@@ -18,6 +19,7 @@ interface StrukDialogProps {
 }
 
 const StrukDialog: React.FC<StrukDialogProps> = ({ cart, info, onClose }) => {
+  const { showToast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -85,19 +87,24 @@ const StrukDialog: React.FC<StrukDialogProps> = ({ cart, info, onClose }) => {
     waText += `Terima kasih atas kunjungannya!\n`;
 
     navigator.clipboard.writeText(waText).then(() => {
-      alert("Format WhatsApp berhasil disalin ke clipboard!");
+      showToast('Format WhatsApp berhasil disalin ke clipboard!', 'success');
     }).catch(err => {
-      console.error("Gagal copy", err);
-      alert("Gagal menyalin teks.");
+      console.error('Gagal copy', err);
+      showToast('Gagal menyalin teks ke clipboard.', 'error');
     });
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 2000
-    }}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Struk Transaksi"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', zIndex: 2000
+      }}
+    >
       <div style={{
         backgroundColor: '#11113a', color: '#e2e8f0',
         padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '400px',

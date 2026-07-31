@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../../lib/apiFetch';
 
 interface Item {
   id: number;
@@ -38,13 +39,11 @@ const DetailTransaksiDialog: React.FC<Props> = ({ transaksiId, onClose, onChange
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchDetail = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/transaksi/${transaksiId}`, { headers });
+      const res = await apiFetch(`/transaksi/${transaksiId}`);
       if (res.ok) setDetail(await res.json());
     } finally {
       setIsLoading(false);
@@ -57,8 +56,8 @@ const DetailTransaksiDialog: React.FC<Props> = ({ transaksiId, onClose, onChange
     if (!newQty || parseInt(newQty) <= 0) { setErrorMsg('Qty harus lebih dari 0'); return; }
     setSaving(true); setErrorMsg('');
     try {
-      const res = await fetch(`http://localhost:8000/transaksi/${transaksiId}/item/${itemId}`, {
-        method: 'PATCH', headers,
+      const res = await apiFetch(`/transaksi/${transaksiId}/item/${itemId}`, {
+        method: 'PATCH',
         body: JSON.stringify({ qty_baru: parseInt(newQty) })
       });
       const result = await res.json();

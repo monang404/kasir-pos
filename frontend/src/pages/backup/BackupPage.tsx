@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../../lib/apiFetch';
 
 interface BackupFile {
   filename: string;
@@ -17,13 +18,11 @@ const BackupPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionResult, setActionResult] = useState<{ success: boolean; message: string; warning?: string } | null>(null);
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchBackups = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/backup/list', { headers });
+      const res = await apiFetch('/backup/list');
       if (res.ok) {
         const data = await res.json();
         setBackups(data.data || []);
@@ -38,8 +37,8 @@ const BackupPage: React.FC = () => {
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
     try {
-      const url = `http://localhost:8000/backup/create${label ? `?label=${encodeURIComponent(label)}` : ''}`;
-      const res = await fetch(url, { method: 'POST', headers });
+      const url = `/backup/create${label ? `?label=${encodeURIComponent(label)}` : ''}`;
+      const res = await apiFetch(url, { method: 'POST' });
       if (res.ok) {
         const r = await res.json();
         setActionResult({ success: true, message: r.message + ` (${r.filename}, ${r.size})` });
@@ -60,12 +59,12 @@ const BackupPage: React.FC = () => {
     setActionResult(null);
     try {
       if (confirmAction.type === 'delete') {
-        const res = await fetch(`http://localhost:8000/backup/delete/${confirmAction.filename}`, { method: 'DELETE', headers });
+        const res = await apiFetch(`/backup/delete/${confirmAction.filename}`, { method: 'DELETE' });
         const r = await res.json();
         setActionResult({ success: res.ok, message: r.message || r.detail });
         if (res.ok) fetchBackups();
       } else if (confirmAction.type === 'restore') {
-        const res = await fetch(`http://localhost:8000/backup/restore/${confirmAction.filename}`, { method: 'POST', headers });
+        const res = await apiFetch(`/backup/restore/${confirmAction.filename}`, { method: 'POST' });
         const r = await res.json();
         setActionResult({ success: res.ok, message: r.message || r.detail, warning: r.warning });
       }

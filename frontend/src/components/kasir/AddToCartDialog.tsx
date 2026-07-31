@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../ui/ToastContext';
 
 export interface Product {
   id: number;
@@ -26,6 +27,7 @@ interface AddToCartDialogProps {
 }
 
 const AddToCartDialog: React.FC<AddToCartDialogProps> = ({ product, onClose, onAdd }) => {
+  const { showToast } = useToast();
   const [qty, setQty] = useState<number>(1);
   const [harga, setHarga] = useState<number>(product.harga_jual);
   const [diskonMode, setDiskonMode] = useState<'Rp' | '%'>('Rp');
@@ -52,7 +54,7 @@ const AddToCartDialog: React.FC<AddToCartDialogProps> = ({ product, onClose, onA
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isBonus && harga <= 0) {
-      alert("Harga jual harus lebih dari 0 jika bukan bonus. Gunakan opsi Bonus Gratis bila memang gratis.");
+      showToast('Harga jual harus lebih dari 0 jika bukan bonus. Gunakan opsi Bonus Gratis bila memang gratis.', 'warning');
       return;
     }
     
@@ -69,11 +71,16 @@ const AddToCartDialog: React.FC<AddToCartDialogProps> = ({ product, onClose, onA
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 1000
-    }}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tambah ke Keranjang"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', zIndex: 1000
+      }}
+    >
       <div style={{
         backgroundColor: '#11113a', color: '#e2e8f0',
         padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '500px',

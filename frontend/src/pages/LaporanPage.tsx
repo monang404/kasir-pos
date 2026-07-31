@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../components/ui/ToastContext';
+import { apiFetch } from '../lib/apiFetch';
 
 const TABS = [
   { id: 'ringkasan', label: 'Ringkasan' },
@@ -31,9 +33,8 @@ const LaporanPage: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(false);
 
+  const { showToast } = useToast();
   const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-
   const buildQuery = () => {
     const params = new URLSearchParams();
     params.set('mode', filterMode);
@@ -50,12 +51,12 @@ const LaporanPage: React.FC = () => {
     const q = buildQuery();
     try {
       const [resR, resT, resPr, resPe, resPeng, resS] = await Promise.all([
-        fetch(`http://localhost:8000/laporan/ringkasan?${q}`, { headers }),
-        fetch(`http://localhost:8000/laporan/transaksi?${q}`, { headers }),
-        fetch(`http://localhost:8000/laporan/produk?${q}`, { headers }),
-        fetch(`http://localhost:8000/laporan/pelanggan?${q}`, { headers }),
-        fetch(`http://localhost:8000/laporan/pengeluaran?${q}`, { headers }),
-        fetch(`http://localhost:8000/laporan/stok`, { headers }) // Stok always snapshot, no query
+        apiFetch(`/laporan/ringkasan?${q}`),
+        apiFetch(`/laporan/transaksi?${q}`),
+        apiFetch(`/laporan/produk?${q}`),
+        apiFetch(`/laporan/pelanggan?${q}`),
+        apiFetch(`/laporan/pengeluaran?${q}`),
+        apiFetch(`/laporan/stok`) // Stok always snapshot, no query
       ]);
 
       if (resR.ok) setDataRingkasan(await resR.json());
@@ -79,13 +80,11 @@ const LaporanPage: React.FC = () => {
   const handleExport = async () => {
     const q = buildQuery();
     try {
-      const res = await fetch(`http://localhost:8000/laporan/export/${activeTab}?${q}`, {
-        headers
-      });
+      const res = await apiFetch(`/laporan/export/${activeTab}?${q}`);
       
       if (!res.ok) {
         const errorData = await res.json();
-        alert(errorData.detail || 'Gagal mengekspor data');
+        showToast(errorData.detail || 'Gagal mengekspor data', 'error');
         return;
       }
       
@@ -100,7 +99,7 @@ const LaporanPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
-      alert('Terjadi kesalahan saat mengekspor laporan');
+      showToast('Terjadi kesalahan saat mengekspor laporan', 'error');
     }
   };
 

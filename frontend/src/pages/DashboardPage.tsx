@@ -3,6 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
+import { apiFetch } from '../lib/apiFetch';
 
 interface Stats {
   omzet: number;
@@ -56,25 +57,29 @@ const DashboardPage: React.FC = () => {
   const [chartsData, setChartsData] = useState<{ chart_12_bulan: any[]; pie_komposisi: any; chart_7_hari: any[] } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const token = localStorage.getItem('token');
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchDashboard = async () => {
     setIsLoading(true);
+    setFetchError(null);
     try {
       const [statsRes, chartsRes] = await Promise.all([
-        fetch(`http://localhost:8000/dashboard/stats?bulan=${bulanFilter}`, { headers }),
-        fetch(`http://localhost:8000/dashboard/charts`, { headers })
+        apiFetch(`/dashboard/stats?bulan=${bulanFilter}`),
+        apiFetch('/dashboard/charts'),
       ]);
 
       if (statsRes.ok && chartsRes.ok) {
         setStatsData(await statsRes.json());
         setChartsData(await chartsRes.json());
         setLastRefreshed(new Date());
+      } else {
+        setFetchError('Gagal memuat data dashboard. Periksa koneksi ke server.');
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setFetchError('Tidak dapat terhubung ke server. Data yang ditampilkan mungkin tidak terkini.');
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +117,7 @@ const DashboardPage: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h1 style={{ margin: 0 }}>Dashboard</h1>
-          <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+          <div style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.25rem' }}>
             Update terakhir: {lastRefreshed.toLocaleTimeString('id-ID')}
           </div>
         </div>
@@ -124,8 +129,21 @@ const DashboardPage: React.FC = () => {
         />
       </div>
 
+      {fetchError && (
+        <div style={{
+          backgroundColor: '#2e0d0d', border: '1px solid #7f1d1d', color: '#f87171',
+          padding: '0.875rem 1rem', borderRadius: '6px', marginBottom: '1.5rem',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span>{fetchError}</span>
+          <button onClick={fetchDashboard} style={{ background: 'none', border: '1px solid #7f1d1d', color: '#f87171', borderRadius: '4px', padding: '0.25rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem' }}>
+            Coba lagi
+          </button>
+        </div>
+      )}
+
       {isLoading && (!statsData || !chartsData) ? (
-        <div style={{ textAlign: 'center', padding: '3rem' }}>Loading Dashboard...</div>
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>Memuat Dashboard...</div>
       ) : (
         <>
           {/* STAT CARDS */}

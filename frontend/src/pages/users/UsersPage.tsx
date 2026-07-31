@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../../components/ui/ToastContext';
+import { apiFetch } from '../../lib/apiFetch';
 
 interface User {
   id: number;
@@ -25,6 +27,9 @@ const UsersPage: React.FC = () => {
   });
   
   const [errorMsg, setErrorMsg] = useState('');
+  const [konfirmasiHapusId, setKonfirmasiHapusId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const { showToast } = useToast();
 
   const token = localStorage.getItem('token');
   // Need to parse current user ID from token to prevent self-deletion
@@ -38,12 +43,11 @@ const UsersPage: React.FC = () => {
     console.error("Gagal parsing token", e);
   }
 
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/users/', { headers });
+      const res = await apiFetch('/users/');
       if (res.ok) {
         const data = await res.json();
         setUsers(data.data || []);
@@ -70,15 +74,15 @@ const UsersPage: React.FC = () => {
 
     try {
       const method = formData.id ? 'PUT' : 'POST';
-      const url = formData.id ? `http://localhost:8000/users/${formData.id}` : 'http://localhost:8000/users/';
+      const url = formData.id ? `/users/${formData.id}` : '/users/';
       
       const payload: any = { ...formData };
       if (formData.id && !formData.password) {
         delete payload.password; // Kosong = tidak ganti password
       }
 
-      const res = await fetch(url, {
-        method, headers, body: JSON.stringify(payload)
+      const res = await apiFetch(url, {
+        method, body: JSON.stringify(payload)
       });
       
       if (res.ok) {
@@ -93,27 +97,33 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (user: User) => {
+  const handleDelete = (user: User) => {
     if (user.id === currentUserId) {
-      alert("Tidak dapat menghapus atau menonaktifkan akun yang sedang digunakan (diri sendiri).");
+      showToast('Tidak dapat menghapus akun yang sedang digunakan (diri sendiri).', 'warning');
       return;
     }
-    
-    if (window.confirm(`Yakin ingin menghapus user ${user.username}? (Bisa berupa soft-delete atau hard-delete tergantung riwayat transaksi)`)) {
-      try {
-        const res = await fetch(`http://localhost:8000/users/${user.id}`, {
-          method: 'DELETE', headers
-        });
-        const data = await res.json();
-        if (res.ok) {
-          alert(`Berhasil: ${data.action}\n${data.message}`);
-          fetchUsers();
-        } else {
-          alert(`Gagal: ${data.detail}`);
-        }
-      } catch (e) {
-        alert("Terjadi kesalahan koneksi");
+    setKonfirmasiHapusId(user.id);
+  };
+
+  const confirmDelete = async (userId: number) => {
+    setDeletingId(userId);
+    try {
+      const res = await apiFetch(`/users/${userId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Berhasil: ${data.message}`, 'success');
+        setKonfirmasiHapusId(null);
+        fetchUsers();
+      } else {
+        showToast(`Gagal: ${data.detail}`, 'error');
+        setKonfirmasiHapusId(null);
       }
+    } catch {
+      showToast('Terjadi kesalahan koneksi', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -190,10 +200,23 @@ const UsersPage: React.FC = () => {
                       Edit
                     </button>
                     {u.id !== currentUserId && (
-                      <button onClick={() => handleDelete(u)}
-                        style={{ padding: '0.4rem 0.75rem', backgroundColor: '#ef4444', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                        Hapus
-                      </button>
+                      konfirmasiHapusId === u.id ? (
+                        <>
+                          <button onClick={() => confirmDelete(u.id)} disabled={!!deletingId}
+                            style={{ padding: '0.4rem 0.75rem', backgroundColor: '#dc2626', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                            {deletingId === u.id ? '...' : 'Ya, Hapus'}
+                          </button>
+                          <button onClick={() => setKonfirmasiHapusId(null)}
+                            style={{ padding: '0.4rem 0.75rem', backgroundColor: 'transparent', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                            Batal
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={() => handleDelete(u)}
+                          style={{ padding: '0.4rem 0.75rem', backgroundColor: '#ef4444', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                          Hapus
+                        </button>
+                      )
                     )}
                   </div>
                 </td>

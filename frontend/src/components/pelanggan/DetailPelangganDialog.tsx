@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DetailTransaksiDialog from '../transaksi/DetailTransaksiDialog';
+import { apiFetch } from '../../lib/apiFetch';
 
 interface Transaksi {
   id: number;
@@ -30,13 +31,11 @@ const DetailPelangganDialog: React.FC<Props> = ({ pelangganId, pelangganNama, on
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTrxId, setSelectedTrxId] = useState<number | null>(null);
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchRiwayat = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/transaksi/?pelanggan_id=${pelangganId}`, { headers });
+      const res = await apiFetch(`/transaksi/?pelanggan_id=${pelangganId}`);
       if (res.ok) {
         const result = await res.json();
         setData(result.data || []);

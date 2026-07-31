@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../../lib/apiFetch';
 
 const TABS = [
   { id: 'prediksi-stok', label: 'Prediksi Stok' },
@@ -28,14 +29,12 @@ const MlPage: React.FC = () => {
   const [tabData, setTabData]     = useState<Record<string, any>>({});
   const [loadingTab, setLoadingTab] = useState<string | null>(null);
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchTab = async (tabId: string, force = false) => {
     setLoadingTab(tabId);
     try {
-      const url = `http://localhost:8000/ml/${tabId}${force ? '?force_refresh=true' : ''}`;
-      const res = await fetch(url, { headers });
+      const url = `/ml/${tabId}${force ? '?force_refresh=true' : ''}`;
+      const res = await apiFetch(url);
       if (res.ok) {
         const json = await res.json();
         setTabData(prev => ({ ...prev, [tabId]: json }));

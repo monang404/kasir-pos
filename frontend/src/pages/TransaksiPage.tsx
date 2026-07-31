@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DetailTransaksiDialog from '../components/transaksi/DetailTransaksiDialog';
+import { apiFetch } from '../lib/apiFetch';
 
 interface Transaksi {
   id: number;
@@ -29,17 +30,24 @@ const TransaksiPage: React.FC = () => {
   const [konfirmasiHapusId, setKonfirmasiHapusId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const token = localStorage.getItem('token');
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+  // UI-017: debounce searchQuery 300ms
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
+
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       if (bulanFilter) params.set('bulan', bulanFilter);
-      if (searchQuery) params.set('q', searchQuery);
+      if (debouncedSearch) params.set('q', debouncedSearch);
 
-      const res = await fetch(`http://localhost:8000/transaksi/?${params}`, { headers });
+      const res = await apiFetch(`/transaksi/?${params}`);
       if (res.ok) {
         const result = await res.json();
         setData(result.data || []);
@@ -52,12 +60,12 @@ const TransaksiPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, [bulanFilter, searchQuery]);
+  useEffect(() => { fetchData(); }, [bulanFilter, debouncedSearch]);
 
   const handleHapus = async (id: number) => {
     setDeletingId(id);
     try {
-      const res = await fetch(`http://localhost:8000/transaksi/${id}`, { method: 'DELETE', headers });
+      const res = await apiFetch(`/transaksi/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setKonfirmasiHapusId(null);
         fetchData();
@@ -137,7 +145,11 @@ const TransaksiPage: React.FC = () => {
             {isLoading ? (
               <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center' }}>Loading...</td></tr>
             ) : data.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Tidak ada transaksi</td></tr>
+              <tr><td colSpan={7} style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                <div style={{ marginBottom: '0.75rem', fontSize: '1.5rem' }}>📋</div>
+                <div style={{ marginBottom: '0.5rem' }}>Belum ada transaksi</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Transaksi akan muncul di sini setelah kasir melakukan checkout</div>
+              </td></tr>
             ) : data.map(trx => (
               <tr key={trx.id} style={{ borderBottom: '1px solid #1e1e4a' }}>
                 <td style={{ padding: '1rem', fontFamily: 'monospace', color: '#94a3b8' }}>{trx.kode}</td>

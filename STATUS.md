@@ -122,6 +122,8 @@ current_task: "addendum_29-36 (diperluas ke Temuan 1-36) sesi 1 dan 2 selesai, l
 | Addendum 29-36 | 7.8 | Keputusan & dokumentasi status service Redis | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
 | Addendum 29-36 | 7.9 | Perbaiki unit SESSION_TIMEOUT | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
 | Addendum 29-36 | 7.10 | datetime.now() naive vs UTC | done | 2026-07-31 | 2026-07-31 |  | Sudah diperbaiki sebelumnya, diverifikasi |
+| Addendum 29-36 | 8.1 | UI/UX Audit Sesi 1: StrukDialog, Toast, PilihPelanggan, debounce, design token (UI-001..017) | done | 2026-07-31 | 2026-07-31 |  | Selesai: UI-001 (StrukDialog tersambung), UI-002 (PilihPelangganDialog), UI-004 (konfirmasi Kosongkan), UI-005 (Toast menggantikan 21x alert()), UI-009 (theme.ts), UI-010 (inline confirm hapus), UI-011 (hapus double-click), UI-013 (qty editable), UI-015 (hapus overlay close), UI-016 (fetchError di UI), UI-017 (debounce 300ms) |
+| Addendum 29-36 | 8.2 | UI/UX Audit Sesi 3: Sidebar collapsible, error states, debounce lanjutan, empty state CTA (UI-006/008/016/017/020/021) | done | 2026-07-31 | 2026-07-31 |  | Sidebar collapsible (UI-020), fetchError Dashboard (UI-016), debounce TransaksiPage+PengeluaranPage (UI-017), empty state CTA PelangganPage+TransaksiPage (UI-021), kontras warna sidebar (UI-008) |
 
 Legenda Status: `pending` → `in_progress` → `done` (atau `blocked` jika terhambat, jelaskan di Catatan).
 

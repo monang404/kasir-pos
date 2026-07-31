@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import BatchProdukDialog from '../components/inventory/BatchProdukDialog';
+import { useToast } from '../components/ui/ToastContext';
+import { apiFetch } from '../lib/apiFetch';
 
 interface Product {
   id: number;
@@ -30,15 +32,16 @@ const InventoryPage: React.FC = () => {
   const [selectedProductForBatch, setSelectedProductForBatch] = useState<Product | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [konfirmasiHapusId, setKonfirmasiHapusId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const { showToast } = useToast();
 
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
       // For demo/scaffolding purposes, no actual API hit if not needed, but we will wire it up.
-      const res = await fetch(`http://localhost:8000/inventory/produk/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/inventory/produk/`);
       if (res.ok) {
         const data = await res.json();
         setProducts(data.data || []);
@@ -61,27 +64,23 @@ const InventoryPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:8000/inventory/produk/`, {
+      const res = await apiFetch(`/inventory/produk/`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(newProduct)
       });
       
       if (res.ok) {
         setIsAddModalOpen(false);
         setNewProduct({ kode: '', nama: '', ukuran: '', harga_beli: 0, harga_jual: 0 });
-        fetchProducts(); // Refresh list
+        fetchProducts();
+        showToast('Produk berhasil ditambahkan', 'success');
       } else {
         const errorData = await res.json();
-        alert(errorData.detail || 'Gagal menambahkan produk');
+        showToast(errorData.detail || 'Gagal menambahkan produk', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan jaringan saat menambah produk');
+      showToast('Terjadi kesalahan jaringan saat menambah produk', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -92,13 +91,8 @@ const InventoryPage: React.FC = () => {
     if (!editProduct) return;
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:8000/inventory/produk/${editProduct.id}`, {
+      const res = await apiFetch(`/inventory/produk/${editProduct.id}`, {
         method: 'PUT',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           kode: editProduct.kode,
           nama: editProduct.nama,
@@ -111,35 +105,39 @@ const InventoryPage: React.FC = () => {
       if (res.ok) {
         setIsEditModalOpen(false);
         setEditProduct(null);
-        fetchProducts(); 
+        fetchProducts();
+        showToast('Produk berhasil diperbarui', 'success');
       } else {
         const errorData = await res.json();
-        alert(errorData.detail || 'Gagal mengubah produk');
+        showToast(errorData.detail || 'Gagal mengubah produk', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan jaringan');
+      showToast('Terjadi kesalahan jaringan', 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: number, nama: string) => {
-    if (!window.confirm(`Yakin ingin menghapus produk ${nama}?`)) return;
+  const handleDelete = async (id: number) => {
+    setDeletingId(id);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:8000/inventory/produk/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await apiFetch(`/inventory/produk/${id}`, {
+        method: 'DELETE'
       });
       if (res.ok) {
+        setKonfirmasiHapusId(null);
         fetchProducts();
+        showToast('Produk berhasil dihapus', 'success');
       } else {
         const errorData = await res.json();
-        alert(errorData.detail || 'Gagal menghapus produk');
+        showToast(errorData.detail || 'Gagal menghapus produk', 'error');
+        setKonfirmasiHapusId(null);
       }
-    } catch (e) {
-      alert('Terjadi kesalahan jaringan saat menghapus');
+    } catch {
+      showToast('Terjadi kesalahan jaringan saat menghapus', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -335,7 +333,20 @@ const InventoryPage: React.FC = () => {
                   <td style={{ padding: '1rem' }}>
                     <button onClick={() => {setEditProduct(p); setIsEditModalOpen(true);}} style={{ marginRight: '0.5rem', padding: '0.25rem 0.5rem', backgroundColor: '#374151', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
                     <button onClick={() => setSelectedProductForBatch(p)} style={{ marginRight: '0.5rem', padding: '0.25rem 0.5rem', backgroundColor: '#374151', border: 'none', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Tambah Stok / Batch</button>
-                    <button onClick={() => handleDelete(p.id, p.nama)} style={{ padding: '0.25rem 0.5rem', backgroundColor: '#7f1d1d', border: 'none', color: '#fca5a5', borderRadius: '4px', cursor: 'pointer' }}>Hapus</button>
+                    {konfirmasiHapusId === p.id ? (
+                      <>
+                        <button onClick={() => handleDelete(p.id)} disabled={!!deletingId}
+                          style={{ padding: '0.25rem 0.5rem', backgroundColor: '#dc2626', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                          {deletingId === p.id ? '...' : 'Ya, Hapus'}
+                        </button>
+                        <button onClick={() => setKonfirmasiHapusId(null)}
+                          style={{ padding: '0.25rem 0.5rem', backgroundColor: 'transparent', border: '1px solid #2d2d5f', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                          Batal
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => setKonfirmasiHapusId(p.id)} style={{ padding: '0.25rem 0.5rem', backgroundColor: '#7f1d1d', border: 'none', color: '#fca5a5', borderRadius: '4px', cursor: 'pointer' }}>Hapus</button>
+                    )}
                   </td>
                 </tr>
               ))

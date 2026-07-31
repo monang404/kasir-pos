@@ -1,7 +1,7 @@
 ---
 title: kasir-POS — Patch Log
-latest_patch_id: PATCH-2026-07-31-090
-total_entries: 90
+latest_patch_id: PATCH-2026-07-31-093
+total_entries: 93
 ---
 
 # PATCHLOG.md — Log Perubahan Proyek (Single Source of Truth)
@@ -20,6 +20,160 @@ total_entries: 90
 > (addendum perbaikan bug 29-36). Field `Type`/`Area`/`Priority`/`Breaking Change`/
 > `Regression Risk` bernilai `Unclassified` pada entri hasil migrasi karena data tsb tidak
 > tersedia di format lama — ini SAH, bukan bug (lihat docstring `automation/patchlog.py`).
+
+---
+
+## PATCH-2026-07-31-093
+
+**Tanggal:** 2026-07-31
+**Timestamp:** 13:14
+**Git Branch:** main
+**Git Commit:** fa4dae6
+**Type:** Fix
+**Area:** Frontend
+**Priority:** High
+**Title:** Global 401 Unauthorized handling with apiFetch
+
+**Reason:** API calls were returning 401 Unauthorized upon token expiration, and frontend was not gracefully handling them (leading to spam requests on page load due to React strict mode without redirect).
+
+**Root Cause:**
+Token kadaluarsa tidak tertangani secara global, fetch() biasa hanya memberikan 401 yang kemudian gagal diproses komponen.
+
+**Solution:**
+Buat lib/apiFetch.ts sebagai wrapper global untuk intercept 401 dan redirect ke /login dengan banner 'Sesi habis'. Migrasi semua halaman dari native fetch() ke apiFetch().
+
+**Changed Files:**
+- `frontend/src/lib/apiFetch.ts`
+- `frontend/src/pages/login.tsx`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/pages/KasirPage.tsx`
+- `frontend/src/pages/TransaksiPage.tsx`
+- `frontend/src/pages/PengeluaranPage.tsx`
+- `frontend/src/pages/PelangganPage.tsx`
+- `frontend/src/pages/users/UsersPage.tsx`
+- `frontend/src/pages/LaporanPage.tsx`
+- `frontend/src/pages/InventoryPage.tsx`
+- `frontend/src/pages/ml/MlPage.tsx`
+- `frontend/src/pages/activity-log/ActivityLogPage.tsx`
+- `frontend/src/pages/backup/BackupPage.tsx`
+- `frontend/src/components/transaksi/DetailTransaksiDialog.tsx`
+- `frontend/src/components/pelanggan/DetailPelangganDialog.tsx`
+- `frontend/src/components/kasir/PilihPelangganDialog.tsx`
+- `frontend/src/components/inventory/BatchProdukDialog.tsx`
+
+**Changed Symbols:**
+- (tidak ada)
+
+**Tests:** npx tsc --noEmit
+
+**Breaking Change:** No
+
+**Regression Risk:** Low
+
+**Related Patch:** -
+
+**Status:** Merged
+
+**Notes:**
+-
+
+---
+
+## PATCH-2026-07-31-092
+
+**Tanggal:** 2026-07-31
+**Timestamp:** 13:00
+**Git Branch:** main
+**Git Commit:** fa4dae6
+**Type:** Feature
+**Area:** Frontend
+**Priority:** Medium
+**Title:** UI/UX Audit Sesi 3: Sidebar collapsible, error states, debounce lanjutan, empty state CTA
+
+**Reason:** Melanjutkan perbaikan temuan audit UI/UX. Sesi 3 mencakup UX polish, responsif sidebar, error feedback lanjutan, dan empty state yang lebih actionable.
+
+**Root Cause:**
+Sidebar statis 230px tanpa collapse (UI-020). Dashboard/fetchProducts hanya console.error saat gagal (UI-016). Debounce hanya di KasirPage sebelumnya (UI-017). Empty state tabel hanya teks tanpa CTA (UI-021). Teks sekunder #64748b kontras rendah (UI-008).
+
+**Solution:**
+Sidebar collapsible dengan tombol toggle panah kiri/kanan + mode icon-only (UI-020/006). fetchError ditampilkan di Dashboard dengan tombol Coba lagi (UI-016). Debounce 300ms ditambahkan ke TransaksiPage dan PengeluaranPage (UI-017). Empty state TransaksiPage dan PelangganPage ditingkatkan dengan icon dan CTA langsung (UI-021). Warna #64748b diganti #94a3b8 untuk teks readable di sidebar (UI-008).
+
+**Changed Files:**
+- `frontend/src/App.tsx`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/pages/TransaksiPage.tsx`
+- `frontend/src/pages/PengeluaranPage.tsx`
+- `frontend/src/pages/PelangganPage.tsx`
+
+**Changed Symbols:**
+- (tidak ada)
+
+**Tests:** npx vitest run
+
+**Breaking Change:** No
+
+**Regression Risk:** Low
+
+**Related Patch:** -
+
+**Status:** Merged
+
+**Notes:**
+-
+
+---
+
+## PATCH-2026-07-31-091
+
+**Tanggal:** 2026-07-31
+**Timestamp:** 12:57
+**Git Branch:** main
+**Git Commit:** fa4dae6
+**Type:** Feature
+**Area:** Frontend
+**Priority:** High
+**Title:** UI/UX Audit Sesi 1: Sambungkan StrukDialog, PilihPelangganDialog, Toast, design token
+
+**Reason:** Audit UI/UX menemukan 21 temuan (2 Critical, 7 High, 8 Medium) yang menurunkan skor ke 46/100. Sesi 1 menyelesaikan temuan Critical/High pada alur inti kasir.
+
+**Root Cause:**
+StrukDialog dan PembayaranDialog sudah dibangun lengkap tapi tidak pernah di-import di manapun (dead code). Tombol Ganti pelanggan tanpa onClick. Seluruh feedback pakai alert() blocking. Tidak ada design token terpusat. Konfirmasi hapus tidak konsisten.
+
+**Solution:**
+Sambungkan StrukDialog ke handleCheckout (UI-001). Buat PilihPelangganDialog dan sambungkan ke tombol Ganti (UI-002). Tambah konfirmasi inline Kosongkan (UI-004). Buat Toast system menggantikan 21 titik alert() (UI-005). Buat PilihPelangganDialog (UI-002). Qty keranjang editable via +/- (UI-013). fetchError ditampilkan di UI (UI-016). Debounce 300ms pada search (UI-017). Ganti window.confirm() dengan inline pattern di Inventory dan Users (UI-010). Hapus onDoubleClick dan tips di PelangganPage (UI-011). Hapus overlay click-to-close di BatchProdukDialog (UI-015). Buat src/theme.ts design token terpusat (UI-009).
+
+**Changed Files:**
+- `frontend/src/pages/KasirPage.tsx`
+- `frontend/src/components/kasir/StrukDialog.tsx`
+- `frontend/src/components/kasir/PembayaranDialog.tsx`
+- `frontend/src/components/kasir/AddToCartDialog.tsx`
+- `frontend/src/components/kasir/PilihPelangganDialog.tsx`
+- `frontend/src/components/ui/Toast.tsx`
+- `frontend/src/components/ui/ToastContext.tsx`
+- `frontend/src/theme.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/pages/InventoryPage.tsx`
+- `frontend/src/pages/PelangganPage.tsx`
+- `frontend/src/pages/LaporanPage.tsx`
+- `frontend/src/pages/users/UsersPage.tsx`
+- `frontend/src/pages/activity-log/ActivityLogPage.tsx`
+- `frontend/src/components/inventory/BatchProdukDialog.tsx`
+
+**Changed Symbols:**
+- (tidak ada)
+
+**Tests:** npx vitest run
+
+**Breaking Change:** No
+
+**Regression Risk:** Medium
+
+**Related Patch:** -
+
+**Status:** Merged
+
+**Notes:**
+-
 
 ---
 
